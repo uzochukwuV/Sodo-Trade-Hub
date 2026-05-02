@@ -1,27 +1,29 @@
 import { useState } from "react";
 
-const BRAND = {
-  bg: "#0A0B0F",
-  surface: "#111218",
-  card: "#16171F",
-  border: "#22242E",
-  accent: "#00E5A0",
-  accentDim: "#00E5A015",
-  purple: "#7B6EF6",
-  purpleDim: "#7B6EF615",
-  red: "#FF4757",
-  redDim: "#FF475715",
-  gold: "#FFB830",
-  textPrimary: "#F2F3F7",
-  textSecondary: "#7C7F96",
-  textMuted: "#4A4C60",
+const C = {
+  bg: "#0A0A0A",
+  surface: "#111111",
+  card: "#161616",
+  border: "#242424",
+  borderLight: "#1E1E1E",
+  accent: "#D4FF00",
+  accentDim: "#D4FF0014",
+  white: "#FFFFFF",
+  gray: "#888888",
+  muted: "#444444",
+  red: "#FF3B3B",
+  redDim: "#FF3B3B14",
+  green: "#22C55E",
 };
+
+const FONT_DISPLAY = "'DM Sans', 'Space Grotesk', system-ui, sans-serif";
+const FONT_MONO = "'JetBrains Mono', 'Fira Mono', monospace";
 
 const posts = [
   {
     id: 1,
     type: "win",
-    user: { name: "0xVega", handle: "@vega", avatar: "VE", rep: 94, verified: true },
+    user: { name: "0XVEGA", handle: "@vega", rep: 94 },
     asset: "BTC-USD",
     side: "LONG",
     entry: 63420,
@@ -29,38 +31,37 @@ const posts = [
     pnl: "+$4,318",
     pnlPct: "+7.45%",
     size: "$58,000",
-    leverage: "10x",
+    leverage: "10×",
     duration: "2d 4h",
-    timestamp: "3h ago",
+    ts: "3H AGO",
     likes: 312,
     copies: 87,
     comments: 42,
-    caption: "Rode the breakout from the $63k support perfectly. ETF inflow data from SosoValue confirmed institutional momentum before entry.",
-    verified: true,
-    tags: ["#BTCLong", "#BreakoutTrade"],
+    caption: "Rode the breakout from the $63k support perfectly. ETF inflow data confirmed institutional momentum before entry.",
+    tags: ["BTC", "LONG", "BREAKOUT"],
   },
   {
     id: 2,
     type: "signal",
-    user: { name: "QuantKing", handle: "@qking", avatar: "QK", rep: 88, verified: true },
+    user: { name: "QUANTKING", handle: "@qking", rep: 88 },
     asset: "ETH-USD",
     side: "LONG",
     entry: "3,180–3,220",
     target: "3,550",
     stop: "3,080",
     rr: "3.2:1",
-    timestamp: "5h ago",
+    ts: "5H AGO",
     likes: 198,
     copies: 54,
     comments: 29,
-    caption: "ETH showing massive accumulation. Macro events calendar clear this week — clean setup for a momentum trade.",
+    caption: "ETH accumulation pattern. Macro calendar clear this week — momentum setup is clean.",
     confidence: 82,
-    tags: ["#ETH", "#Signal"],
+    tags: ["ETH", "SIGNAL"],
   },
   {
     id: 3,
     type: "win",
-    user: { name: "ArcadiaFi", handle: "@arcadia", avatar: "AF", rep: 76, verified: false },
+    user: { name: "ARCADIAFI", handle: "@arcadia", rep: 76 },
     asset: "HYPE-USD",
     side: "SHORT",
     entry: 41.8,
@@ -68,394 +69,295 @@ const posts = [
     pnl: "+$2,160",
     pnlPct: "+8.61%",
     size: "$25,000",
-    leverage: "5x",
+    leverage: "5×",
     duration: "18h",
-    timestamp: "1d ago",
+    ts: "1D AGO",
     likes: 143,
     copies: 31,
     comments: 17,
-    caption: "HYPE overextended. Faded the wick perfectly on perps. Tight execution.",
-    verified: true,
-    tags: ["#HYPEShort"],
+    caption: "HYPE overextended. Faded the wick perfectly on perps.",
+    tags: ["HYPE", "SHORT"],
   },
 ];
 
-function Avatar({ initials, color, size = 40 }: { initials: string; color?: string; size?: number }) {
-  const colors = ["#7B6EF6", "#00E5A0", "#FF4757", "#FFB830", "#4ECDC4"];
-  const bg = color || colors[initials.charCodeAt(0) % colors.length];
+function RepCircle({ score }: { score: number }) {
+  const color = score >= 90 ? C.accent : C.white;
   return (
-    <div
-      style={{
-        width: size, height: size,
-        borderRadius: "50%",
-        background: bg,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: size * 0.35, fontWeight: 700, color: "#0A0B0F",
-        flexShrink: 0,
-        fontFamily: "Space Grotesk, sans-serif",
-      }}
-    >
-      {initials}
+    <div style={{
+      width: 40, height: 40,
+      borderRadius: "50%",
+      border: `1.5px solid ${color}50`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      <span style={{ color, fontSize: 11, fontWeight: 700, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{score}</span>
     </div>
   );
 }
 
-function RepBadge({ score }: { score: number }) {
-  const color = score >= 90 ? BRAND.gold : score >= 75 ? BRAND.accent : BRAND.purple;
+function Tag({ label, accent }: { label: string; accent?: boolean }) {
   return (
     <span style={{
-      background: color + "20",
-      border: `1px solid ${color}50`,
-      color,
-      borderRadius: 4,
-      padding: "1px 6px",
-      fontSize: 11,
+      background: accent ? C.accent : "transparent",
+      color: accent ? C.bg : C.muted,
+      border: `1px solid ${accent ? C.accent : C.border}`,
+      borderRadius: 2,
+      padding: "2px 7px",
+      fontSize: 10,
       fontWeight: 700,
-      fontFamily: "JetBrains Mono, monospace",
-    }}>
-      REP {score}
-    </span>
+      letterSpacing: 0.8,
+      fontFamily: FONT_DISPLAY,
+    }}>{label}</span>
   );
 }
 
 function WinPost({ post }: { post: typeof posts[0] }) {
   const [liked, setLiked] = useState(false);
   const isLong = post.side === "LONG";
-  const sideColor = isLong ? BRAND.accent : BRAND.red;
+
   return (
     <div style={{
-      background: BRAND.card,
-      border: `1px solid ${BRAND.border}`,
-      borderRadius: 14,
-      padding: 20,
-      marginBottom: 14,
+      borderTop: `1px solid ${C.border}`,
+      padding: "24px 0",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-        <Avatar initials={post.user.avatar} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ color: BRAND.textPrimary, fontWeight: 700, fontSize: 15 }}>{post.user.name}</span>
-            {post.user.verified && (
-              <span style={{ color: BRAND.accent, fontSize: 12 }}>✓</span>
-            )}
-            <span style={{ color: BRAND.textMuted, fontSize: 13 }}>{post.user.handle}</span>
-            <RepBadge score={post.user.rep} />
-            <span style={{ color: BRAND.textMuted, fontSize: 12, marginLeft: "auto" }}>{post.timestamp}</span>
+      <div style={{ display: "flex", gap: 16 }}>
+        <RepCircle score={post.user.rep} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+            <span style={{ color: C.white, fontWeight: 800, fontSize: 14, fontFamily: FONT_DISPLAY, letterSpacing: 0.5 }}>{post.user.name}</span>
+            <span style={{ color: C.muted, fontSize: 12, fontFamily: FONT_MONO }}>{post.user.handle}</span>
+            <span style={{ color: C.muted, fontSize: 11, marginLeft: "auto" }}>{post.ts}</span>
           </div>
-          <p style={{ color: BRAND.textSecondary, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>{post.caption}</p>
-        </div>
-      </div>
+          <p style={{ color: C.gray, fontSize: 13, lineHeight: 1.6, marginBottom: 16, fontFamily: FONT_DISPLAY }}>{post.caption}</p>
 
-      <div style={{
-        background: BRAND.bg,
-        borderRadius: 10,
-        padding: "14px 16px",
-        marginBottom: 14,
-        border: `1px solid ${sideColor}30`,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ color: BRAND.textPrimary, fontWeight: 800, fontSize: 16, fontFamily: "Space Grotesk, sans-serif" }}>{post.asset}</span>
-            <span style={{
-              background: sideColor + "20",
-              color: sideColor,
-              border: `1px solid ${sideColor}40`,
-              borderRadius: 5,
-              padding: "2px 8px",
-              fontSize: 12,
-              fontWeight: 700,
-            }}>{post.side} {post.leverage}</span>
-            {(post as any).verified && (
-              <span style={{
-                background: "#00E5A010",
-                color: BRAND.accent,
-                border: `1px solid ${BRAND.accent}30`,
-                borderRadius: 5,
-                padding: "2px 8px",
-                fontSize: 11,
-                fontWeight: 600,
-              }}>ON-CHAIN VERIFIED</span>
-            )}
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ color: BRAND.accent, fontWeight: 800, fontSize: 20, fontFamily: "JetBrains Mono, monospace" }}>{post.pnl}</div>
-            <div style={{ color: BRAND.accent, fontSize: 13, fontFamily: "JetBrains Mono, monospace" }}>{post.pnlPct}</div>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-          {[
-            ["Entry", `$${post.entry?.toLocaleString()}`],
-            ["Exit", `$${(post as any).exit?.toLocaleString()}`],
-            ["Size", post.size],
-            ["Duration", post.duration],
-          ].map(([label, val]) => (
-            <div key={label}>
-              <div style={{ color: BRAND.textMuted, fontSize: 11, marginBottom: 2 }}>{label}</div>
-              <div style={{ color: BRAND.textPrimary, fontWeight: 600, fontSize: 13, fontFamily: "JetBrains Mono, monospace" }}>{val}</div>
+          <div style={{
+            border: `1px solid ${C.border}`,
+            borderRadius: 4,
+            padding: "16px 18px",
+            marginBottom: 14,
+            background: C.card,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ color: C.white, fontWeight: 900, fontSize: 17, fontFamily: FONT_DISPLAY, letterSpacing: 0.5 }}>{post.asset}</span>
+                <Tag label={post.side} accent={isLong} />
+                <Tag label={post.leverage} />
+                <Tag label="ON-CHAIN" />
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: C.accent, fontWeight: 900, fontSize: 22, fontFamily: FONT_MONO, letterSpacing: -1 }}>{post.pnl}</div>
+                <div style={{ color: C.accent, fontSize: 13, fontFamily: FONT_MONO }}>{post.pnlPct}</div>
+              </div>
             </div>
-          ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              {[
+                ["ENTRY", `$${post.entry?.toLocaleString()}`],
+                ["EXIT", `$${(post as any).exit?.toLocaleString()}`],
+                ["SIZE", post.size],
+                ["HELD", post.duration],
+              ].map(([l, v]) => (
+                <div key={l}>
+                  <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, marginBottom: 4, fontFamily: FONT_DISPLAY }}>{l}</div>
+                  <div style={{ color: C.white, fontWeight: 700, fontSize: 13, fontFamily: FONT_MONO }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            {post.tags?.map(t => <Tag key={t} label={t} />)}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <button onClick={() => setLiked(!liked)} style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: liked ? C.accent : C.gray, fontSize: 12,
+              display: "flex", alignItems: "center", gap: 5, fontFamily: FONT_DISPLAY, fontWeight: 600,
+            }}>♥ {post.likes + (liked ? 1 : 0)}</button>
+            <span style={{ color: C.gray, fontSize: 12, fontFamily: FONT_DISPLAY, fontWeight: 600 }}>✦ {post.comments}</span>
+            <span style={{ color: C.gray, fontSize: 12, fontFamily: FONT_DISPLAY, fontWeight: 600, marginLeft: "auto" }}>{post.copies} COPIED</span>
+            <button style={{
+              background: C.accent,
+              color: C.bg,
+              border: "none",
+              borderRadius: 3,
+              padding: "7px 18px",
+              fontWeight: 800,
+              fontSize: 12,
+              cursor: "pointer",
+              letterSpacing: 0.5,
+              fontFamily: FONT_DISPLAY,
+            }}>COPY TRADE</button>
+          </div>
         </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-        {post.tags?.map(t => (
-          <span key={t} style={{ color: BRAND.purple, fontSize: 12, background: BRAND.purpleDim, borderRadius: 5, padding: "2px 8px" }}>{t}</span>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 20, paddingTop: 10, borderTop: `1px solid ${BRAND.border}` }}>
-        <button onClick={() => setLiked(!liked)} style={{
-          background: "none", border: "none", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 6,
-          color: liked ? BRAND.red : BRAND.textSecondary, fontSize: 13,
-        }}>
-          ♥ {post.likes + (liked ? 1 : 0)}
-        </button>
-        <span style={{ color: BRAND.textSecondary, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-          💬 {post.comments}
-        </span>
-        <span style={{ color: BRAND.textSecondary, fontSize: 13, marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-          📋 {post.copies} copied
-        </span>
-        <button style={{
-          background: BRAND.accent,
-          color: "#0A0B0F",
-          border: "none",
-          borderRadius: 8,
-          padding: "6px 16px",
-          fontWeight: 700,
-          fontSize: 13,
-          cursor: "pointer",
-        }}>Copy Trade</button>
       </div>
     </div>
   );
 }
 
 function SignalPost({ post }: { post: typeof posts[1] }) {
-  const isLong = post.side === "LONG";
-  const sideColor = isLong ? BRAND.accent : BRAND.red;
   return (
-    <div style={{
-      background: BRAND.card,
-      border: `1px solid ${BRAND.purple}40`,
-      borderRadius: 14,
-      padding: 20,
-      marginBottom: 14,
-    }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-        <Avatar initials={post.user.avatar} color={BRAND.purple} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ color: BRAND.textPrimary, fontWeight: 700, fontSize: 15 }}>{post.user.name}</span>
-            <span style={{ color: BRAND.textMuted, fontSize: 13 }}>{post.user.handle}</span>
-            <RepBadge score={post.user.rep} />
+    <div style={{ borderTop: `1px solid ${C.border}`, padding: "24px 0" }}>
+      <div style={{ display: "flex", gap: 16 }}>
+        <RepCircle score={post.user.rep} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+            <span style={{ color: C.white, fontWeight: 800, fontSize: 14, fontFamily: FONT_DISPLAY, letterSpacing: 0.5 }}>{post.user.name}</span>
+            <span style={{ color: C.muted, fontSize: 12, fontFamily: FONT_MONO }}>{post.user.handle}</span>
             <span style={{
-              background: BRAND.purpleDim,
-              border: `1px solid ${BRAND.purple}50`,
-              color: BRAND.purple,
-              borderRadius: 5, padding: "2px 8px", fontSize: 11, fontWeight: 700,
+              background: "transparent",
+              border: `1px solid ${C.accent}60`,
+              color: C.accent,
+              borderRadius: 2,
+              padding: "2px 7px",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 0.8,
             }}>SIGNAL</span>
-            <span style={{ color: BRAND.textMuted, fontSize: 12, marginLeft: "auto" }}>{post.timestamp}</span>
+            <span style={{ color: C.muted, fontSize: 11, marginLeft: "auto" }}>{post.ts}</span>
           </div>
-          <p style={{ color: BRAND.textSecondary, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>{post.caption}</p>
-        </div>
-      </div>
+          <p style={{ color: C.gray, fontSize: 13, lineHeight: 1.6, marginBottom: 16, fontFamily: FONT_DISPLAY }}>{post.caption}</p>
 
-      <div style={{
-        background: BRAND.bg,
-        borderRadius: 10,
-        padding: "14px 16px",
-        marginBottom: 14,
-        border: `1px solid ${BRAND.purple}25`,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ color: BRAND.textPrimary, fontWeight: 800, fontSize: 16 }}>{post.asset}</span>
-            <span style={{
-              background: sideColor + "20",
-              color: sideColor,
-              border: `1px solid ${sideColor}40`,
-              borderRadius: 5, padding: "2px 8px", fontSize: 12, fontWeight: 700,
-            }}>{post.side}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: BRAND.textSecondary, fontSize: 12 }}>Confidence</span>
-            <div style={{ width: 80, height: 6, background: BRAND.border, borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ width: `${post.confidence}%`, height: "100%", background: BRAND.purple, borderRadius: 3 }} />
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px 18px", marginBottom: 14, background: C.card }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ color: C.white, fontWeight: 900, fontSize: 17, fontFamily: FONT_DISPLAY }}>{post.asset}</span>
+                <Tag label={post.side} accent />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: C.muted, fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>CONFIDENCE</span>
+                <div style={{ width: 80, height: 3, background: C.border, borderRadius: 2 }}>
+                  <div style={{ width: `${post.confidence}%`, height: "100%", background: C.accent, borderRadius: 2 }} />
+                </div>
+                <span style={{ color: C.accent, fontSize: 13, fontWeight: 800, fontFamily: FONT_MONO }}>{post.confidence}%</span>
+              </div>
             </div>
-            <span style={{ color: BRAND.purple, fontSize: 13, fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>{post.confidence}%</span>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-          {[
-            ["Entry Zone", post.entry],
-            ["Target", `$${post.target}`],
-            ["Stop Loss", `$${post.stop}`],
-            ["R:R", post.rr],
-          ].map(([label, val]) => (
-            <div key={label as string}>
-              <div style={{ color: BRAND.textMuted, fontSize: 11, marginBottom: 2 }}>{label}</div>
-              <div style={{ color: label === "Target" ? BRAND.accent : label === "Stop Loss" ? BRAND.red : BRAND.textPrimary, fontWeight: 600, fontSize: 13, fontFamily: "JetBrains Mono, monospace" }}>{val}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              {[
+                ["ENTRY ZONE", post.entry],
+                ["TARGET", `$${post.target}`],
+                ["STOP", `$${post.stop}`],
+                ["R:R", post.rr],
+              ].map(([l, v]) => (
+                <div key={l as string}>
+                  <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, letterSpacing: 0.8, marginBottom: 4, fontFamily: FONT_DISPLAY }}>{l}</div>
+                  <div style={{ color: l === "TARGET" ? C.accent : l === "STOP" ? C.red : C.white, fontWeight: 700, fontSize: 13, fontFamily: FONT_MONO }}>{v}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 16, paddingTop: 10, borderTop: `1px solid ${BRAND.border}` }}>
-        <span style={{ color: BRAND.textSecondary, fontSize: 13 }}>♥ {post.likes}</span>
-        <span style={{ color: BRAND.textSecondary, fontSize: 13 }}>💬 {post.comments}</span>
-        <span style={{ color: BRAND.textSecondary, fontSize: 13, marginLeft: "auto" }}>📡 {post.copies} following</span>
-        <button style={{
-          background: BRAND.purple,
-          color: "#fff",
-          border: "none",
-          borderRadius: 8,
-          padding: "6px 16px",
-          fontWeight: 700,
-          fontSize: 13,
-          cursor: "pointer",
-        }}>Follow Signal</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <span style={{ color: C.gray, fontSize: 12, fontFamily: FONT_DISPLAY, fontWeight: 600 }}>♥ {post.likes}</span>
+            <span style={{ color: C.gray, fontSize: 12, fontFamily: FONT_DISPLAY, fontWeight: 600 }}>✦ {post.comments}</span>
+            <span style={{ color: C.gray, fontSize: 12, fontFamily: FONT_DISPLAY, fontWeight: 600, marginLeft: "auto" }}>{post.copies} FOLLOWING</span>
+            <button style={{
+              background: "transparent",
+              color: C.accent,
+              border: `1px solid ${C.accent}`,
+              borderRadius: 3,
+              padding: "7px 18px",
+              fontWeight: 800,
+              fontSize: 12,
+              cursor: "pointer",
+              letterSpacing: 0.5,
+              fontFamily: FONT_DISPLAY,
+            }}>FOLLOW SIGNAL</button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 export function Feed() {
-  const [tab, setTab] = useState<"all" | "wins" | "signals">("all");
+  const [tab, setTab] = useState<"ALL" | "WINS" | "SIGNALS">("ALL");
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: BRAND.bg,
-      fontFamily: "Inter, system-ui, sans-serif",
-      display: "flex",
-      flexDirection: "column",
-    }}>
-      <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: FONT_DISPLAY, color: C.white }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
       <div style={{
-        background: BRAND.surface,
-        borderBottom: `1px solid ${BRAND.border}`,
-        padding: "14px 24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
+        borderBottom: `1px solid ${C.border}`,
+        padding: "0 32px",
+        display: "flex", alignItems: "center",
+        height: 56,
+        position: "sticky", top: 0, background: C.bg, zIndex: 10,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 40 }}>
           <div style={{
-            width: 32, height: 32,
-            background: `linear-gradient(135deg, ${BRAND.accent}, ${BRAND.purple})`,
-            borderRadius: 8,
+            width: 28, height: 28,
+            border: `1.5px solid ${C.accent}`,
+            borderRadius: "50%",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, fontWeight: 900, color: "#0A0B0F",
-            fontFamily: "Space Grotesk, sans-serif",
+            fontSize: 13, fontWeight: 900, color: C.accent,
           }}>S</div>
-          <span style={{ color: BRAND.textPrimary, fontWeight: 800, fontSize: 18, fontFamily: "Space Grotesk, sans-serif", letterSpacing: -0.5 }}>Sogram</span>
+          <span style={{ color: C.white, fontWeight: 900, fontSize: 16, letterSpacing: 1 }}>SOGRAM</span>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["all", "wins", "signals"] as const).map(t => (
+
+        <div style={{ display: "flex", gap: 0, marginRight: "auto" }}>
+          {(["ALL", "WINS", "SIGNALS"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
-              background: tab === t ? BRAND.accent : "transparent",
-              color: tab === t ? "#0A0B0F" : BRAND.textSecondary,
-              border: `1px solid ${tab === t ? BRAND.accent : BRAND.border}`,
-              borderRadius: 8,
-              padding: "6px 14px",
-              fontWeight: 600,
-              fontSize: 13,
+              background: "none",
+              color: tab === t ? C.accent : C.gray,
+              border: "none",
+              borderBottom: `2px solid ${tab === t ? C.accent : "transparent"}`,
+              padding: "0 16px",
+              height: 56,
+              fontWeight: 700,
+              fontSize: 12,
               cursor: "pointer",
-              textTransform: "capitalize",
+              letterSpacing: 0.8,
+              fontFamily: FONT_DISPLAY,
             }}>{t}</button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
-            background: BRAND.card,
-            border: `1px solid ${BRAND.border}`,
-            borderRadius: 8,
-            padding: "7px 14px",
-            color: BRAND.textSecondary,
-            fontSize: 13,
-          }}>🔍 Search traders...</div>
-          <Avatar initials="ME" size={32} />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ color: C.muted, fontSize: 13 }}>BTC $68,142</span>
+          <span style={{ color: C.accent, fontSize: 13, fontFamily: FONT_MONO }}>+2.31%</span>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.gray, fontSize: 12, fontWeight: 700 }}>ME</div>
         </div>
       </div>
 
-      <div style={{ display: "flex", flex: 1, maxWidth: 1200, margin: "0 auto", width: "100%", gap: 0 }}>
-        <div style={{ width: 220, padding: "20px 16px", borderRight: `1px solid ${BRAND.border}`, flexShrink: 0 }}>
+      <div style={{ display: "flex", maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ width: 200, padding: "32px 24px", borderRight: `1px solid ${C.border}`, flexShrink: 0 }}>
           {[
-            ["🏠", "Feed", true],
-            ["📡", "Signals"],
-            ["📋", "Copy Trading"],
-            ["📊", "Analytics", false, true],
-            ["🏆", "Leaderboard"],
-            ["👤", "Profile"],
-          ].map(([icon, label, active, premium]) => (
+            ["FEED", true],
+            ["SIGNALS"],
+            ["COPY"],
+            ["ANALYTICS", false, true],
+            ["LEADERBOARD"],
+            ["PROFILE"],
+          ].map(([label, active, pro]) => (
             <div key={label as string} style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 12px",
-              borderRadius: 9,
-              marginBottom: 2,
-              background: active ? BRAND.accentDim : "transparent",
-              color: active ? BRAND.accent : BRAND.textSecondary,
-              fontSize: 14,
-              fontWeight: active ? 600 : 400,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "10px 0",
+              color: active ? C.accent : C.gray,
+              fontSize: 12,
+              fontWeight: active ? 800 : 600,
+              letterSpacing: 0.8,
               cursor: "pointer",
+              borderBottom: `1px solid ${C.borderLight}`,
             }}>
-              <span>{icon as string}</span>
               <span>{label as string}</span>
-              {premium && (
-                <span style={{
-                  marginLeft: "auto",
-                  background: BRAND.gold + "20",
-                  color: BRAND.gold,
-                  fontSize: 9,
-                  padding: "1px 5px",
-                  borderRadius: 3,
-                  fontWeight: 700,
-                }}>PRO</span>
-              )}
+              {pro && <span style={{ background: C.accent, color: C.bg, fontSize: 8, padding: "1px 5px", fontWeight: 900, letterSpacing: 0.5 }}>PRO</span>}
             </div>
           ))}
         </div>
 
-        <div style={{ flex: 1, padding: "20px 24px", overflow: "auto", maxHeight: "calc(100vh - 62px)" }}>
+        <div style={{ flex: 1, padding: "0 32px", maxHeight: "calc(100vh - 56px)", overflow: "auto" }}>
           <div style={{
-            background: BRAND.card,
-            border: `1px solid ${BRAND.border}`,
-            borderRadius: 14,
-            padding: 16,
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
+            padding: "20px 0",
+            borderBottom: `1px solid ${C.border}`,
+            marginBottom: 4,
+            display: "flex", gap: 14, alignItems: "center",
           }}>
-            <Avatar initials="ME" size={36} />
-            <div style={{
-              flex: 1,
-              background: BRAND.bg,
-              border: `1px solid ${BRAND.border}`,
-              borderRadius: 8,
-              padding: "10px 14px",
-              color: BRAND.textMuted,
-              fontSize: 14,
-              cursor: "text",
-            }}>Share a verified trade or signal...</div>
-            <button style={{
-              background: BRAND.accent,
-              color: "#0A0B0F",
-              border: "none",
-              borderRadius: 8,
-              padding: "8px 18px",
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: "pointer",
-            }}>Post</button>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontSize: 11, fontWeight: 700 }}>ME</div>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 3, padding: "9px 14px", color: C.muted, fontSize: 13 }}>
+              Share a verified trade or signal...
+            </div>
+            <button style={{ background: C.accent, color: C.bg, border: "none", borderRadius: 3, padding: "9px 20px", fontWeight: 800, fontSize: 12, cursor: "pointer", letterSpacing: 0.5 }}>POST</button>
           </div>
 
           {posts.map(p =>
@@ -465,37 +367,34 @@ export function Feed() {
           )}
         </div>
 
-        <div style={{ width: 240, padding: "20px 16px", flexShrink: 0, borderLeft: `1px solid ${BRAND.border}` }}>
-          <div style={{ color: BRAND.textSecondary, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" }}>Market Pulse</div>
+        <div style={{ width: 220, padding: "32px 20px", borderLeft: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.muted, marginBottom: 16 }}>MARKET PULSE</div>
           {[
-            { asset: "BTC-USD", price: "68,142", change: "+2.31%", up: true },
-            { asset: "ETH-USD", price: "3,215", change: "+1.87%", up: true },
-            { asset: "XRP-USD", price: "1.42", change: "-0.78%", up: false },
-            { asset: "HYPE-USD", price: "41.37", change: "-3.21%", up: false },
+            { asset: "BTC", price: "68,142", chg: "+2.31%", up: true },
+            { asset: "ETH", price: "3,215", chg: "+1.87%", up: true },
+            { asset: "XRP", price: "1.42", chg: "-0.78%", up: false },
+            { asset: "HYPE", price: "41.37", chg: "-3.21%", up: false },
           ].map(m => (
-            <div key={m.asset} style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "8px 0", borderBottom: `1px solid ${BRAND.border}`,
-            }}>
-              <span style={{ color: BRAND.textPrimary, fontSize: 13, fontWeight: 600 }}>{m.asset}</span>
+            <div key={m.asset} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${C.borderLight}` }}>
+              <span style={{ color: C.gray, fontSize: 12, fontWeight: 700, letterSpacing: 0.5 }}>{m.asset}</span>
               <div style={{ textAlign: "right" }}>
-                <div style={{ color: BRAND.textPrimary, fontSize: 13, fontFamily: "JetBrains Mono, monospace" }}>${m.price}</div>
-                <div style={{ color: m.up ? BRAND.accent : BRAND.red, fontSize: 12, fontFamily: "JetBrains Mono, monospace" }}>{m.change}</div>
+                <div style={{ color: C.white, fontSize: 12, fontFamily: FONT_MONO }}>${m.price}</div>
+                <div style={{ color: m.up ? C.accent : C.red, fontSize: 11, fontFamily: FONT_MONO }}>{m.chg}</div>
               </div>
             </div>
           ))}
 
-          <div style={{ marginTop: 20, color: BRAND.textSecondary, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" }}>Top Traders</div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.muted, marginTop: 28, marginBottom: 16 }}>TOP TRADERS</div>
           {[
-            { name: "0xVega", pnl: "+$48.2K", rep: 94 },
-            { name: "QuantKing", pnl: "+$31.5K", rep: 88 },
-            { name: "ArcadiaFi", pnl: "+$19.1K", rep: 76 },
+            { name: "0XVEGA", pnl: "+$48.2K", rep: 94 },
+            { name: "QUANTKING", pnl: "+$31.5K", rep: 88 },
+            { name: "ARCADIAFI", pnl: "+$19.1K", rep: 76 },
           ].map((t, i) => (
-            <div key={t.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-              <span style={{ color: BRAND.textMuted, fontSize: 13, width: 16 }}>#{i + 1}</span>
-              <Avatar initials={t.name.slice(0, 2).toUpperCase()} size={28} />
-              <span style={{ color: BRAND.textPrimary, fontSize: 13, flex: 1 }}>{t.name}</span>
-              <span style={{ color: BRAND.accent, fontSize: 12, fontFamily: "JetBrains Mono, monospace" }}>{t.pnl}</span>
+            <div key={t.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.borderLight}` }}>
+              <span style={{ color: C.muted, fontSize: 11, fontFamily: FONT_MONO, width: 14 }}>#{i + 1}</span>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: C.gray, fontWeight: 700 }}>{t.name.slice(0, 2)}</div>
+              <span style={{ color: C.white, fontSize: 11, fontWeight: 700, flex: 1, letterSpacing: 0.3 }}>{t.name}</span>
+              <span style={{ color: C.accent, fontSize: 11, fontFamily: FONT_MONO, fontWeight: 700 }}>{t.pnl}</span>
             </div>
           ))}
         </div>
