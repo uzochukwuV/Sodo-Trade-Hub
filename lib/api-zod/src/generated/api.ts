@@ -713,19 +713,104 @@ export const GetAnalyticsSummaryResponse = zod.object({
 });
 
 /**
+ * @summary Get analytics market data (legacy)
+ */
+export const GetAnalyticsMarketResponse = zod.object({
+  prices: zod.array(zod.object({}).passthrough()),
+});
+
+/**
  * @summary Get live market prices from Sodex testnet
  */
 export const GetMarketPricesResponse = zod.object({
-  tickers: zod.array(
+  prices: zod.array(
     zod.object({
       symbol: zod.string(),
-      price: zod.string(),
-      change24h: zod.string(),
-      changePct24h: zod.string(),
-      isUp: zod.boolean(),
+      price: zod.number(),
+      change24h: zod.number(),
+      openInterest: zod.number(),
+      fundingRate: zod.number(),
+      markPrice: zod.number(),
+      indexPrice: zod.number(),
     }),
   ),
-  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Get crypto news from SoSoValue
+ */
+export const getMarketNewsQueryLimitDefault = 10;
+
+export const GetMarketNewsQueryParams = zod.object({
+  limit: zod.coerce.number().default(getMarketNewsQueryLimitDefault),
+});
+
+export const GetMarketNewsResponse = zod.object({
+  news: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      url: zod.string(),
+      publishedAt: zod.string(),
+      source: zod.string(),
+      summary: zod.string().optional(),
+      coins: zod.array(zod.string()).optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get OHLC kline data for a symbol
+ */
+export const GetMarketKlinesParams = zod.object({
+  symbol: zod.coerce.string(),
+});
+
+export const getMarketKlinesQueryDaysDefault = 1;
+
+export const GetMarketKlinesQueryParams = zod.object({
+  days: zod.coerce.number().default(getMarketKlinesQueryDaysDefault),
+});
+
+export const GetMarketKlinesResponse = zod.object({
+  klines: zod.array(
+    zod.object({
+      time: zod.number(),
+      open: zod.number(),
+      high: zod.number(),
+      low: zod.number(),
+      close: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get AI-generated market vibe summary with prices and news
+ */
+export const GetMarketVibeResponse = zod.object({
+  summary: zod.string(),
+  prices: zod.array(
+    zod.object({
+      symbol: zod.string(),
+      price: zod.number(),
+      change24h: zod.number(),
+      openInterest: zod.number(),
+      fundingRate: zod.number(),
+      markPrice: zod.number(),
+      indexPrice: zod.number(),
+    }),
+  ),
+  news: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      url: zod.string(),
+      publishedAt: zod.string(),
+      source: zod.string(),
+      summary: zod.string().optional(),
+      coins: zod.array(zod.string()).optional(),
+    }),
+  ),
 });
 
 /**

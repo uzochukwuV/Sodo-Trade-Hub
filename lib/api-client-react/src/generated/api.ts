@@ -28,9 +28,12 @@ import type {
   CreateTraderBody,
   ErrorResponse,
   FeedResponse,
+  GetAnalyticsMarket200,
   GetFeedParams,
   GetLeaderboard200,
   GetLeaderboardParams,
+  GetMarketKlinesParams,
+  GetMarketNewsParams,
   GetTraderTrades200,
   GetTraderTradesParams,
   GetWhaleActivity200,
@@ -49,7 +52,10 @@ import type {
   ListSignalsParams,
   ListTraders200,
   ListTradersParams,
-  MarketPrices,
+  MarketKlinesResponse,
+  MarketNewsResponse,
+  MarketPricesResponse,
+  MarketVibeResponse,
   PainRoom,
   ReputationBreakdown,
   ResolveBreakdown200,
@@ -2011,23 +2017,98 @@ export function useGetAnalyticsSummary<
 }
 
 /**
+ * @summary Get analytics market data (legacy)
+ */
+export const getGetAnalyticsMarketUrl = () => {
+  return `/api/analytics/market`;
+};
+
+export const getAnalyticsMarket = async (
+  options?: RequestInit,
+): Promise<GetAnalyticsMarket200> => {
+  return customFetch<GetAnalyticsMarket200>(getGetAnalyticsMarketUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAnalyticsMarketQueryKey = () => {
+  return [`/api/analytics/market`] as const;
+};
+
+export const getGetAnalyticsMarketQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalyticsMarket>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsMarket>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAnalyticsMarketQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnalyticsMarket>>
+  > = ({ signal }) => getAnalyticsMarket({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsMarket>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalyticsMarketQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalyticsMarket>>
+>;
+export type GetAnalyticsMarketQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get analytics market data (legacy)
+ */
+
+export function useGetAnalyticsMarket<
+  TData = Awaited<ReturnType<typeof getAnalyticsMarket>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsMarket>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsMarketQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get live market prices from Sodex testnet
  */
 export const getGetMarketPricesUrl = () => {
-  return `/api/analytics/market`;
+  return `/api/market/prices`;
 };
 
 export const getMarketPrices = async (
   options?: RequestInit,
-): Promise<MarketPrices> => {
-  return customFetch<MarketPrices>(getGetMarketPricesUrl(), {
+): Promise<MarketPricesResponse> => {
+  return customFetch<MarketPricesResponse>(getGetMarketPricesUrl(), {
     ...options,
     method: "GET",
   });
 };
 
 export const getGetMarketPricesQueryKey = () => {
-  return [`/api/analytics/market`] as const;
+  return [`/api/market/prices`] as const;
 };
 
 export const getGetMarketPricesQueryOptions = <
@@ -2077,6 +2158,287 @@ export function useGetMarketPrices<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMarketPricesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get crypto news from SoSoValue
+ */
+export const getGetMarketNewsUrl = (params?: GetMarketNewsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/market/news?${stringifiedParams}`
+    : `/api/market/news`;
+};
+
+export const getMarketNews = async (
+  params?: GetMarketNewsParams,
+  options?: RequestInit,
+): Promise<MarketNewsResponse> => {
+  return customFetch<MarketNewsResponse>(getGetMarketNewsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMarketNewsQueryKey = (params?: GetMarketNewsParams) => {
+  return [`/api/market/news`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMarketNewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMarketNews>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetMarketNewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMarketNews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMarketNewsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketNews>>> = ({
+    signal,
+  }) => getMarketNews(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMarketNews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMarketNewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMarketNews>>
+>;
+export type GetMarketNewsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get crypto news from SoSoValue
+ */
+
+export function useGetMarketNews<
+  TData = Awaited<ReturnType<typeof getMarketNews>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetMarketNewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMarketNews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMarketNewsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get OHLC kline data for a symbol
+ */
+export const getGetMarketKlinesUrl = (
+  symbol: string,
+  params?: GetMarketKlinesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/market/klines/${symbol}?${stringifiedParams}`
+    : `/api/market/klines/${symbol}`;
+};
+
+export const getMarketKlines = async (
+  symbol: string,
+  params?: GetMarketKlinesParams,
+  options?: RequestInit,
+): Promise<MarketKlinesResponse> => {
+  return customFetch<MarketKlinesResponse>(
+    getGetMarketKlinesUrl(symbol, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMarketKlinesQueryKey = (
+  symbol: string,
+  params?: GetMarketKlinesParams,
+) => {
+  return [`/api/market/klines/${symbol}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMarketKlinesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMarketKlines>>,
+  TError = ErrorType<unknown>,
+>(
+  symbol: string,
+  params?: GetMarketKlinesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMarketKlines>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMarketKlinesQueryKey(symbol, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketKlines>>> = ({
+    signal,
+  }) => getMarketKlines(symbol, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!symbol,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMarketKlines>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMarketKlinesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMarketKlines>>
+>;
+export type GetMarketKlinesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get OHLC kline data for a symbol
+ */
+
+export function useGetMarketKlines<
+  TData = Awaited<ReturnType<typeof getMarketKlines>>,
+  TError = ErrorType<unknown>,
+>(
+  symbol: string,
+  params?: GetMarketKlinesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMarketKlines>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMarketKlinesQueryOptions(symbol, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI-generated market vibe summary with prices and news
+ */
+export const getGetMarketVibeUrl = () => {
+  return `/api/market/vibe`;
+};
+
+export const getMarketVibe = async (
+  options?: RequestInit,
+): Promise<MarketVibeResponse> => {
+  return customFetch<MarketVibeResponse>(getGetMarketVibeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMarketVibeQueryKey = () => {
+  return [`/api/market/vibe`] as const;
+};
+
+export const getGetMarketVibeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMarketVibe>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMarketVibe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMarketVibeQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketVibe>>> = ({
+    signal,
+  }) => getMarketVibe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMarketVibe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMarketVibeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMarketVibe>>
+>;
+export type GetMarketVibeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI-generated market vibe summary with prices and news
+ */
+
+export function useGetMarketVibe<
+  TData = Awaited<ReturnType<typeof getMarketVibe>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMarketVibe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMarketVibeQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

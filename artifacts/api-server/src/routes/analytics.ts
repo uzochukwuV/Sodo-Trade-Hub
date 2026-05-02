@@ -50,13 +50,8 @@ router.get("/analytics/summary", async (req, res) => {
 });
 
 router.get("/analytics/market-prices", async (_req, res) => {
-  const assets = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "ARB/USDT", "OP/USDT"];
-  const prices = assets.map(symbol => ({
-    symbol,
-    price: (Math.random() * 70000 + 100).toFixed(2),
-    change24h: ((Math.random() - 0.5) * 10).toFixed(2),
-    volume24h: (Math.random() * 1e9).toFixed(0),
-  }));
+  const { getMarketPrices } = await import("../services/market");
+  const prices = await getMarketPrices();
   res.json({ prices });
 });
 

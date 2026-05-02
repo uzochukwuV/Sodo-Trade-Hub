@@ -485,6 +485,52 @@ export interface MarketPrices {
   updatedAt: string;
 }
 
+export interface LiveMarketPrice {
+  symbol: string;
+  price: number;
+  change24h: number;
+  openInterest: number;
+  fundingRate: number;
+  markPrice: number;
+  indexPrice: number;
+}
+
+export interface MarketPricesResponse {
+  prices: LiveMarketPrice[];
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  source: string;
+  summary?: string;
+  coins?: string[];
+}
+
+export interface MarketNewsResponse {
+  news: NewsItem[];
+}
+
+export interface Kline {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export interface MarketKlinesResponse {
+  klines: Kline[];
+}
+
+export interface MarketVibeResponse {
+  summary: string;
+  prices: LiveMarketPrice[];
+  news: NewsItem[];
+}
+
 export interface LeaderboardEntry {
   rank: number;
   id: number;
@@ -718,6 +764,20 @@ export type LikePainRoom200 = {
 
 export type LikeBreakdown200 = {
   likeCount: number;
+};
+
+export type GetAnalyticsMarket200PricesItem = { [key: string]: unknown };
+
+export type GetAnalyticsMarket200 = {
+  prices: GetAnalyticsMarket200PricesItem[];
+};
+
+export type GetMarketNewsParams = {
+  limit?: number;
+};
+
+export type GetMarketKlinesParams = {
+  days?: number;
 };
 
 export type GetWhaleActivity200 = {

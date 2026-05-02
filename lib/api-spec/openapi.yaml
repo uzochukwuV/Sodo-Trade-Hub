@@ -578,16 +578,91 @@ paths:
 
   /analytics/market:
     get:
-      operationId: getMarketPrices
+      operationId: getAnalyticsMarket
       tags: [analytics]
-      summary: Get live market prices from Sodex testnet
+      summary: Get analytics market data (legacy)
       responses:
         "200":
-          description: Market prices
+          description: Market data
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MarketPrices"
+                type: object
+                properties:
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                required: [prices]
+
+  /market/prices:
+    get:
+      operationId: getMarketPrices
+      tags: [market]
+      summary: Get live market prices from Sodex testnet
+      responses:
+        "200":
+          description: Live market prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPricesResponse"
+
+  /market/news:
+    get:
+      operationId: getMarketNews
+      tags: [market]
+      summary: Get crypto news from SoSoValue
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: News feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketNewsResponse"
+
+  /market/klines/{symbol}:
+    get:
+      operationId: getMarketKlines
+      tags: [market]
+      summary: Get OHLC kline data for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Kline data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketKlinesResponse"
+
+  /market/vibe:
+    get:
+      operationId: getMarketVibe
+      tags: [market]
+      summary: Get AI-generated market vibe summary with prices and news
+      responses:
+        "200":
+          description: Market vibe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketVibeResponse"
 
   /analytics/whales:
     get:
@@ -1615,6 +1690,103 @@ components:
         updatedAt:
           type: string
       required: [tickers, updatedAt]
+
+    LiveMarketPrice:
+      type: object
+      properties:
+        symbol:
+          type: string
+        price:
+          type: number
+        change24h:
+          type: number
+        openInterest:
+          type: number
+        fundingRate:
+          type: number
+        markPrice:
+          type: number
+        indexPrice:
+          type: number
+      required: [symbol, price, change24h, openInterest, fundingRate, markPrice, indexPrice]
+
+    MarketPricesResponse:
+      type: object
+      properties:
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveMarketPrice"
+      required: [prices]
+
+    NewsItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+        publishedAt:
+          type: string
+        source:
+          type: string
+        summary:
+          type: string
+        coins:
+          type: array
+          items:
+            type: string
+      required: [id, title, url, publishedAt, source]
+
+    MarketNewsResponse:
+      type: object
+      properties:
+        news:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsItem"
+      required: [news]
+
+    Kline:
+      type: object
+      properties:
+        time:
+          type: number
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+      required: [time, open, high, low, close]
+
+    MarketKlinesResponse:
+      type: object
+      properties:
+        klines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Kline"
+      required: [klines]
+
+    MarketVibeResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveMarketPrice"
+        news:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsItem"
+      required: [summary, prices, news]
 
     WhalePosition:
       type: object

@@ -89,6 +89,7 @@ router.get("/feed", async (req, res) => {
           leverage: trade.leverage,
           isOnChainVerified: trade.isOnChainVerified ?? false,
           isVerified: trade.isVerified,
+          txHash: trade.txHash ?? undefined,
           likeCount: trade.likeCount,
           likes: trade.likeCount,
           caption: trade.comment ?? undefined,

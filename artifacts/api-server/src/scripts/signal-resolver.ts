@@ -2,20 +2,10 @@ import { db, signalsTable, tradersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
 import { logger } from "../lib/logger";
+import { getPrice } from "../services/market";
 
-const PAIR_PRICES: Record<string, () => number> = {
-  "BTC/USDT": () => 66000 + (Math.random() - 0.5) * 8000,
-  "ETH/USDT": () => 3400 + (Math.random() - 0.5) * 600,
-  "SOL/USDT": () => 165 + (Math.random() - 0.5) * 30,
-  "BNB/USDT": () => 410 + (Math.random() - 0.5) * 50,
-  "ARB/USDT": () => 1.1 + (Math.random() - 0.5) * 0.3,
-  "OP/USDT": () => 2.4 + (Math.random() - 0.5) * 0.6,
-  "AVAX/USDT": () => 38 + (Math.random() - 0.5) * 10,
-};
-
-function getMarketPrice(asset: string): number | null {
-  const fn = PAIR_PRICES[asset];
-  return fn ? fn() : null;
+async function getMarketPrice(asset: string): Promise<number | null> {
+  return getPrice(asset);
 }
 
 export async function resolveOpenSignals() {
@@ -25,7 +15,7 @@ export async function resolveOpenSignals() {
     .where(and(eq(signalsTable.isActive, true), eq(signalsTable.status, "open")));
 
   for (const signal of openSignals) {
-    const price = getMarketPrice(signal.asset);
+    const price = await getMarketPrice(signal.asset);
     if (price === null) continue;
 
     const entry = Number(signal.entryPrice);

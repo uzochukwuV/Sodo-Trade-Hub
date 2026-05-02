@@ -64,14 +64,14 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
 | Page | Route | Status |
 |------|-------|--------|
-| Feed | `/` | Live — 4 post types (win/loss/signal/whale), LOSSES + WHALES tabs |
-| Signals | `/signals` | Live — filter grid, confidence slider, grid/list toggle, accuracy badges |
+| Feed | `/` | Live — 4 post types (win/loss/signal/whale), LOSSES + WHALES tabs, AI Market Vibe section (live Sodex prices + SoSoValue news), txHash display on on-chain verified trades |
+| Signals | `/signals` | Live — filter grid, confidence slider, grid/list toggle, live price strip (Sodex), Signal Accuracy Leaderboard, Sparkline charts (CoinGecko OHLC), unrealized P&L per signal |
 | Pain Room | `/pain-room` | Live — verified losses, structured breakdowns, anonymous post toggle |
-| Intents | `/intents` | Live — pre-trade vote validation (VALID/SKIP), live vote bars, tabs |
+| Intents | `/intents` | Live — pre-trade vote validation (VALID/SKIP), live vote bars, tabs (open/hit/missed/all) |
 | Copy Trading | `/copy` | Live — follow traders, set risk limits |
-| Analytics | `/analytics` | Live — crowd positions, whale activity (mocked) |
+| Analytics | `/analytics` | Live — crowd positions, whale activity |
 | Traders | `/traders` | Live — directory + search |
-| Trader Profile | `/traders/:id` | Live — full profile with trade history |
+| Trader Profile | `/traders/:id` | Live — full profile with signal accuracy bar, win rate |
 
 ## DB Schema Tables
 
@@ -90,15 +90,23 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
 ---
 
-## Platform Analysis (saved May 2026)
+## Platform Analysis (updated May 2026)
 
 ### External APIs — Current State
 
-**Sodex and SoSoValue are NOT yet integrated. All data is seeded/mocked:**
-- `isVerified: boolean` on trades exists in DB but has no real Sodex hash behind it
-- Analytics market prices: `Math.random()` — completely fake
-- Whale activity: random data regenerated every request
-- All trader reputations, PnL, win rates: manually seeded
+**Sodex and SoSoValue are NOW integrated:**
+- `artifacts/api-server/src/services/market.ts` — unified market service with 30s cache (prices), 5min cache (news/klines)
+- **Sodex testnet** (`SODEX_BASE_URL=https://testnet-gw.sodex.dev/api/v1`): live perp ticker prices for BTC/ETH/SOL/BNB/ARB/OP/AVAX
+- **CoinGecko** (free, no key): OHLC klines for sparkline charts (`/coins/{id}/ohlc`)
+- **SoSoValue** (`SOSO_BASE_URL`, `SOSO_API_KEY`): crypto news feed for Market Vibe section
+- **Market Vibe**: contextual mock text built from real prices + news (OpenRouter deferred)
+- `txHash` column on trades: real 0x-prefixed hex hash, sets `isOnChainVerified=true`, displayed truncated in feed
+
+### Market Service API Routes
+- `GET /api/market/prices` — live Sodex prices (30s cache)
+- `GET /api/market/news` — SoSoValue news (5min cache)
+- `GET /api/market/klines/:symbol?days=1` — CoinGecko OHLC (5min cache)
+- `GET /api/market/vibe` — summary + prices + news combined
 
 ### What Each External API Provides
 

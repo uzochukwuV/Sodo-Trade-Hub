@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetFeed, useLikeTrade, useLikeSignal } from "@workspace/api-client-react";
+import { useGetFeed, useLikeTrade, useLikeSignal, useGetMarketVibe } from "@workspace/api-client-react";
 import type { FeedItem } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,16 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
               ))}
             </div>
           </div>
+
+          {(post as any).txHash && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 border border-accent/20 bg-accent/5">
+              <span className="text-accent text-[9px] font-extrabold tracking-widest">TX</span>
+              <span className="text-accent/70 font-mono text-[10px]">
+                {String((post as any).txHash).slice(0, 6)}...{String((post as any).txHash).slice(-6)}
+              </span>
+              <span className="text-muted-foreground text-[9px] ml-auto">ON-CHAIN VERIFIED</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-5">
             <button
@@ -301,6 +311,57 @@ function WhalePost({ post }: { post: NonNullable<FeedItem["whale"]> }) {
   );
 }
 
+function MarketVibe() {
+  const { data, isLoading } = useGetMarketVibe({
+    query: { queryKey: ["market-vibe"], staleTime: 5 * 60_000, refetchInterval: 5 * 60_000 },
+  });
+
+  if (isLoading || !data) return null;
+
+  return (
+    <div style={{
+      border: "1px solid rgba(212,255,0,0.2)",
+      background: "linear-gradient(135deg, rgba(212,255,0,0.04) 0%, rgba(0,0,0,0) 100%)",
+      padding: "14px 16px",
+      marginBottom: 4,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#D4FF00", animation: "pulse 2s infinite" }} />
+        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.15em", color: "#D4FF00" }}>AI MARKET VIBE</span>
+        <div style={{ display: "flex", gap: 12, marginLeft: "auto" }}>
+          {(data.prices ?? []).slice(0, 3).map(p => (
+            <span key={p.symbol} style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>
+              <span style={{ color: "#555" }}>{p.symbol.split("/")[0]} </span>
+              <span style={{ color: p.change24h >= 0 ? "#22C55E" : "#FF3B3B" }}>
+                ${p.price < 100 ? p.price.toFixed(2) : p.price.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: "#888", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
+        {data.summary}
+      </p>
+      {(data.news ?? []).length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          {(data.news ?? []).slice(0, 2).map(n => (
+            <div key={n.id} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+              <span style={{ color: "#D4FF00", fontSize: 9, fontWeight: 900, marginTop: 1, flexShrink: 0 }}>▸</span>
+              <a href={n.url} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, color: "#ccc", fontWeight: 600, textDecoration: "none", lineHeight: 1.4 }}
+                onMouseOver={e => (e.currentTarget.style.color = "#D4FF00")}
+                onMouseOut={e => (e.currentTarget.style.color = "#ccc")}
+              >
+                {n.title}
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type FeedTab = "all" | "wins" | "signals" | "losses" | "whales";
 
 const TABS: { label: string; value: FeedTab }[] = [
@@ -336,6 +397,9 @@ export default function Feed() {
           </button>
         ))}
       </div>
+
+      {/* Market Vibe */}
+      <MarketVibe />
 
       {/* Composer */}
       <div className="py-5 border-b border-border mb-1 flex gap-3.5 items-center">

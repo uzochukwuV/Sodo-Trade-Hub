@@ -9,6 +9,7 @@ import analyticsRouter from "./analytics";
 import painRoomsRouter from "./pain_rooms";
 import reputationRouter from "./reputation";
 import intentsRouter from "./intents";
+import marketRouter from "./market";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(analyticsRouter);
 router.use(painRoomsRouter);
 router.use(reputationRouter);
 router.use(intentsRouter);
+router.use(marketRouter);
 
 export default router;
