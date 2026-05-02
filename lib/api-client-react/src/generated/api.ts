@@ -32,6 +32,7 @@ import type {
   GetFeedParams,
   GetLeaderboard200,
   GetLeaderboardParams,
+  GetMarketFillsParams,
   GetMarketKlinesParams,
   GetMarketNewsParams,
   GetTraderTrades200,
@@ -52,6 +53,7 @@ import type {
   ListSignalsParams,
   ListTraders200,
   ListTradersParams,
+  MarketFillsResponse,
   MarketKlinesResponse,
   MarketNewsResponse,
   MarketPricesResponse,
@@ -67,6 +69,8 @@ import type {
   Trader,
   TraderProfile,
   UpsertCopyConfigBody,
+  VerifySodexTradeBody,
+  VerifySodexTradeResponse,
   VoteIntentBody,
   VoteIntentResponse,
 } from "./api.schemas";
@@ -2446,6 +2450,204 @@ export function useGetMarketVibe<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get recent Sodex testnet market fills (trade executions) for a symbol
+ */
+export const getGetMarketFillsUrl = (
+  symbol: string,
+  params?: GetMarketFillsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/market/fills/${symbol}?${stringifiedParams}`
+    : `/api/market/fills/${symbol}`;
+};
+
+export const getMarketFills = async (
+  symbol: string,
+  params?: GetMarketFillsParams,
+  options?: RequestInit,
+): Promise<MarketFillsResponse> => {
+  return customFetch<MarketFillsResponse>(
+    getGetMarketFillsUrl(symbol, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMarketFillsQueryKey = (
+  symbol: string,
+  params?: GetMarketFillsParams,
+) => {
+  return [`/api/market/fills/${symbol}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMarketFillsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMarketFills>>,
+  TError = ErrorType<unknown>,
+>(
+  symbol: string,
+  params?: GetMarketFillsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMarketFills>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMarketFillsQueryKey(symbol, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketFills>>> = ({
+    signal,
+  }) => getMarketFills(symbol, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!symbol,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMarketFills>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMarketFillsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMarketFills>>
+>;
+export type GetMarketFillsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get recent Sodex testnet market fills (trade executions) for a symbol
+ */
+
+export function useGetMarketFills<
+  TData = Awaited<ReturnType<typeof getMarketFills>>,
+  TError = ErrorType<unknown>,
+>(
+  symbol: string,
+  params?: GetMarketFillsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMarketFills>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMarketFillsQueryOptions(symbol, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Verify a Sodex testnet trade ID against the public fills feed
+ */
+export const getVerifySodexTradeUrl = () => {
+  return `/api/trades/verify-sodex`;
+};
+
+export const verifySodexTrade = async (
+  verifySodexTradeBody: VerifySodexTradeBody,
+  options?: RequestInit,
+): Promise<VerifySodexTradeResponse> => {
+  return customFetch<VerifySodexTradeResponse>(getVerifySodexTradeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(verifySodexTradeBody),
+  });
+};
+
+export const getVerifySodexTradeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifySodexTrade>>,
+    TError,
+    { data: BodyType<VerifySodexTradeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifySodexTrade>>,
+  TError,
+  { data: BodyType<VerifySodexTradeBody> },
+  TContext
+> => {
+  const mutationKey = ["verifySodexTrade"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifySodexTrade>>,
+    { data: BodyType<VerifySodexTradeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifySodexTrade(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifySodexTradeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifySodexTrade>>
+>;
+export type VerifySodexTradeMutationBody = BodyType<VerifySodexTradeBody>;
+export type VerifySodexTradeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Verify a Sodex testnet trade ID against the public fills feed
+ */
+export const useVerifySodexTrade = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifySodexTrade>>,
+    TError,
+    { data: BodyType<VerifySodexTradeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifySodexTrade>>,
+  TError,
+  { data: BodyType<VerifySodexTradeBody> },
+  TContext
+> => {
+  return useMutation(getVerifySodexTradeMutationOptions(options));
+};
 
 /**
  * @summary Get recent large positions (whale activity)

@@ -664,6 +664,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/MarketVibeResponse"
 
+  /market/fills/{symbol}:
+    get:
+      operationId: getMarketFills
+      tags: [market]
+      summary: Get recent Sodex testnet market fills (trade executions) for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "Pair symbol e.g. BTC/USDT"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Recent market fills from Sodex testnet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketFillsResponse"
+
+  /trades/verify-sodex:
+    post:
+      operationId: verifySodexTrade
+      tags: [trades]
+      summary: Verify a Sodex testnet trade ID against the public fills feed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifySodexTradeBody"
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifySodexTradeResponse"
+
   /analytics/whales:
     get:
       operationId: getWhaleActivity
@@ -1036,6 +1080,10 @@ components:
         txHash:
           type: string
           nullable: true
+        sodexTradeId:
+          type: string
+          nullable: true
+          description: "Sodex testnet trade ID used for on-chain verification"
         likeCount:
           type: integer
         likes:
@@ -1096,6 +1144,9 @@ components:
         txHash:
           type: string
           description: "Optional 0x-prefixed 64-char hex transaction hash. Sets isOnChainVerified=true when present."
+        sodexTradeId:
+          type: string
+          description: "Optional Sodex testnet trade ID. Verified against Sodex fills feed. Sets isOnChainVerified=true when matched."
       required:
         - traderId
         - asset
@@ -1787,6 +1838,71 @@ components:
           items:
             $ref: "#/components/schemas/NewsItem"
       required: [summary, prices, news]
+
+    SodexFill:
+      type: object
+      properties:
+        tradeId:
+          type: string
+          description: "Sodex internal trade ID (large integer as string)"
+        time:
+          type: number
+          description: "Unix timestamp in milliseconds"
+        symbol:
+          type: string
+          description: "Sogram symbol e.g. BTC/USDT"
+        side:
+          type: string
+          enum: [BUY, SELL]
+        price:
+          type: number
+        quantity:
+          type: number
+      required: [tradeId, time, symbol, side, price, quantity]
+
+    MarketFillsResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        fills:
+          type: array
+          items:
+            $ref: "#/components/schemas/SodexFill"
+        fetchedAt:
+          type: string
+      required: [symbol, fills, fetchedAt]
+
+    VerifySodexTradeBody:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: "Pair symbol e.g. BTC/USDT"
+        sodexTradeId:
+          type: string
+          description: "Sodex trade ID from the fills feed"
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        claimedPrice:
+          type: number
+          description: "The price the trader claims to have executed at"
+      required: [symbol, sodexTradeId, side, claimedPrice]
+
+    VerifySodexTradeResponse:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+        matchedFill:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SodexFill"
+      required: [verified]
 
     WhalePosition:
       type: object

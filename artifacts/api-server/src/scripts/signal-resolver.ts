@@ -2,10 +2,31 @@ import { db, signalsTable, tradersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
 import { logger } from "../lib/logger";
-import { getPrice } from "../services/market";
+import { getPrice, getFills } from "../services/market";
 
-async function getMarketPrice(asset: string): Promise<number | null> {
-  return getPrice(asset);
+async function checkFillsCrossed(
+  asset: string,
+  side: "LONG" | "SHORT",
+  target: number,
+  stop: number,
+  sinceMs: number
+): Promise<"hit" | "stopped" | null> {
+  try {
+    const fills = await getFills(asset, 200);
+    const recent = fills.filter(f => f.time >= sinceMs);
+
+    for (const fill of recent) {
+      if (side === "LONG") {
+        if (fill.price >= target) return "hit";
+        if (fill.price <= stop) return "stopped";
+      } else {
+        if (fill.price <= target) return "hit";
+        if (fill.price >= stop) return "stopped";
+      }
+    }
+  } catch {
+  }
+  return null;
 }
 
 export async function resolveOpenSignals() {
@@ -14,22 +35,27 @@ export async function resolveOpenSignals() {
     .from(signalsTable)
     .where(and(eq(signalsTable.isActive, true), eq(signalsTable.status, "open")));
 
-  for (const signal of openSignals) {
-    const price = await getMarketPrice(signal.asset);
-    if (price === null) continue;
+  const sinceMs = Date.now() - 90_000;
 
-    const entry = Number(signal.entryPrice);
+  for (const signal of openSignals) {
     const target = Number(signal.targetPrice);
     const stop = Number(signal.stopLoss);
 
     let outcome: "hit" | "stopped" | null = null;
 
-    if (signal.side === "LONG") {
-      if (price >= target) outcome = "hit";
-      else if (price <= stop) outcome = "stopped";
-    } else {
-      if (price <= target) outcome = "hit";
-      else if (price >= stop) outcome = "stopped";
+    outcome = await checkFillsCrossed(signal.asset, signal.side, target, stop, sinceMs);
+
+    if (!outcome) {
+      const price = await getPrice(signal.asset);
+      if (price === null) continue;
+
+      if (signal.side === "LONG") {
+        if (price >= target) outcome = "hit";
+        else if (price <= stop) outcome = "stopped";
+      } else {
+        if (price <= target) outcome = "hit";
+        else if (price >= stop) outcome = "stopped";
+      }
     }
 
     if (!outcome) continue;
@@ -55,7 +81,7 @@ export async function resolveOpenSignals() {
       })
       .where(eq(tradersTable.id, signal.traderId));
 
-    logger.info({ signalId: signal.id, asset: signal.asset, outcome, price }, "Signal auto-resolved");
+    logger.info({ signalId: signal.id, asset: signal.asset, outcome }, "Signal auto-resolved");
   }
 
   if (openSignals.length > 0) {

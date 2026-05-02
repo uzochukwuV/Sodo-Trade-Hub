@@ -80,6 +80,8 @@ export interface Trade {
   isVerified?: boolean;
   isOnChainVerified: boolean;
   txHash?: string | null;
+  /** Sodex testnet trade ID used for on-chain verification */
+  sodexTradeId?: string | null;
   likeCount: number;
   likes?: number;
   caption?: string | null;
@@ -149,6 +151,8 @@ export interface CreateTradeBody {
   comment?: string;
   /** Optional 0x-prefixed 64-char hex transaction hash. Sets isOnChainVerified=true when present. */
   txHash?: string;
+  /** Optional Sodex testnet trade ID. Verified against Sodex fills feed. Sets isOnChainVerified=true when matched. */
+  sodexTradeId?: string;
 }
 
 export type SignalSide = (typeof SignalSide)[keyof typeof SignalSide];
@@ -531,6 +535,55 @@ export interface MarketVibeResponse {
   news: NewsItem[];
 }
 
+export type SodexFillSide = (typeof SodexFillSide)[keyof typeof SodexFillSide];
+
+export const SodexFillSide = {
+  BUY: "BUY",
+  SELL: "SELL",
+} as const;
+
+export interface SodexFill {
+  /** Sodex internal trade ID (large integer as string) */
+  tradeId: string;
+  /** Unix timestamp in milliseconds */
+  time: number;
+  /** Sogram symbol e.g. BTC/USDT */
+  symbol: string;
+  side: SodexFillSide;
+  price: number;
+  quantity: number;
+}
+
+export interface MarketFillsResponse {
+  symbol: string;
+  fills: SodexFill[];
+  fetchedAt: string;
+}
+
+export type VerifySodexTradeBodySide =
+  (typeof VerifySodexTradeBodySide)[keyof typeof VerifySodexTradeBodySide];
+
+export const VerifySodexTradeBodySide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export interface VerifySodexTradeBody {
+  /** Pair symbol e.g. BTC/USDT */
+  symbol: string;
+  /** Sodex trade ID from the fills feed */
+  sodexTradeId: string;
+  side: VerifySodexTradeBodySide;
+  /** The price the trader claims to have executed at */
+  claimedPrice: number;
+}
+
+export interface VerifySodexTradeResponse {
+  verified: boolean;
+  reason?: string | null;
+  matchedFill?: SodexFill | null;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   id: number;
@@ -778,6 +831,10 @@ export type GetMarketNewsParams = {
 
 export type GetMarketKlinesParams = {
   days?: number;
+};
+
+export type GetMarketFillsParams = {
+  limit?: number;
 };
 
 export type GetWhaleActivity200 = {

@@ -52,6 +52,10 @@ export const GetFeedResponse = zod.object({
           isVerified: zod.boolean().optional(),
           isOnChainVerified: zod.boolean(),
           txHash: zod.string().nullish(),
+          sodexTradeId: zod
+            .string()
+            .nullish()
+            .describe("Sodex testnet trade ID used for on-chain verification"),
           likeCount: zod.number(),
           likes: zod.number().optional(),
           caption: zod.string().nullish(),
@@ -236,6 +240,10 @@ export const GetTraderResponse = zod
           isVerified: zod.boolean().optional(),
           isOnChainVerified: zod.boolean(),
           txHash: zod.string().nullish(),
+          sodexTradeId: zod
+            .string()
+            .nullish()
+            .describe("Sodex testnet trade ID used for on-chain verification"),
           likeCount: zod.number(),
           likes: zod.number().optional(),
           caption: zod.string().nullish(),
@@ -318,6 +326,10 @@ export const GetTraderTradesResponse = zod.object({
       isVerified: zod.boolean().optional(),
       isOnChainVerified: zod.boolean(),
       txHash: zod.string().nullish(),
+      sodexTradeId: zod
+        .string()
+        .nullish()
+        .describe("Sodex testnet trade ID used for on-chain verification"),
       likeCount: zod.number(),
       likes: zod.number().optional(),
       caption: zod.string().nullish(),
@@ -347,6 +359,12 @@ export const CreateTradeBody = zod.object({
     .optional()
     .describe(
       "Optional 0x-prefixed 64-char hex transaction hash. Sets isOnChainVerified=true when present.",
+    ),
+  sodexTradeId: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional Sodex testnet trade ID. Verified against Sodex fills feed. Sets isOnChainVerified=true when matched.",
     ),
 });
 
@@ -811,6 +829,65 @@ export const GetMarketVibeResponse = zod.object({
       coins: zod.array(zod.string()).optional(),
     }),
   ),
+});
+
+/**
+ * @summary Get recent Sodex testnet market fills (trade executions) for a symbol
+ */
+export const GetMarketFillsParams = zod.object({
+  symbol: zod.coerce.string().describe("Pair symbol e.g. BTC\/USDT"),
+});
+
+export const getMarketFillsQueryLimitDefault = 50;
+
+export const GetMarketFillsQueryParams = zod.object({
+  limit: zod.coerce.number().default(getMarketFillsQueryLimitDefault),
+});
+
+export const GetMarketFillsResponse = zod.object({
+  symbol: zod.string(),
+  fills: zod.array(
+    zod.object({
+      tradeId: zod
+        .string()
+        .describe("Sodex internal trade ID (large integer as string)"),
+      time: zod.number().describe("Unix timestamp in milliseconds"),
+      symbol: zod.string().describe("Sogram symbol e.g. BTC\/USDT"),
+      side: zod.enum(["BUY", "SELL"]),
+      price: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+  fetchedAt: zod.string(),
+});
+
+/**
+ * @summary Verify a Sodex testnet trade ID against the public fills feed
+ */
+export const VerifySodexTradeBody = zod.object({
+  symbol: zod.string().describe("Pair symbol e.g. BTC\/USDT"),
+  sodexTradeId: zod.string().describe("Sodex trade ID from the fills feed"),
+  side: zod.enum(["LONG", "SHORT"]),
+  claimedPrice: zod
+    .number()
+    .describe("The price the trader claims to have executed at"),
+});
+
+export const VerifySodexTradeResponse = zod.object({
+  verified: zod.boolean(),
+  reason: zod.string().nullish(),
+  matchedFill: zod
+    .object({
+      tradeId: zod
+        .string()
+        .describe("Sodex internal trade ID (large integer as string)"),
+      time: zod.number().describe("Unix timestamp in milliseconds"),
+      symbol: zod.string().describe("Sogram symbol e.g. BTC\/USDT"),
+      side: zod.enum(["BUY", "SELL"]),
+      price: zod.number(),
+      quantity: zod.number(),
+    })
+    .nullish(),
 });
 
 /**

@@ -103,17 +103,22 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 - `txHash` column on trades: real 0x-prefixed hex hash, sets `isOnChainVerified=true`, displayed truncated in feed
 
 ### Market Service API Routes
-- `GET /api/market/prices` — live Sodex prices (30s cache)
+- `GET /api/market/prices` — live Sodex ticker prices (30s cache)
 - `GET /api/market/news` — SoSoValue news (5min cache)
-- `GET /api/market/klines/:symbol?days=1` — CoinGecko OHLC (5min cache)
+- `GET /api/market/klines/:symbol?days=1` — Sodex native OHLC klines (5min cache, CoinGecko fallback)
 - `GET /api/market/vibe` — summary + prices + news combined
+- `GET /api/market/fills/:symbol?limit=50` — live Sodex trade fills (15s cache), returns last N fills with tradeId/time/side/price/qty
+- `POST /api/trades/verify-sodex` — verify a Sodex trade ID against fills feed (checks side match + price within 2%)
 
 ### What Each External API Provides
 
-**Sodex:**
-- Trade verification hashes (proof of on-chain execution) — foundational credibility layer
-- Live position data (trade open/close events) — auto-triggers feed posts
-- Open interest by asset — real crowd positioning for Analytics
+**Sodex (integrated):**
+- Live market fills per symbol: `/perps/markets/{symbol}/trades` — 50 recent fills, paginated by time
+- Native OHLC klines: `/perps/markets/{symbol}/klines?interval=1h/4h/1d` — used for sparklines
+- Tickers: `/perps/markets/tickers` — 30 markets, mark/index price, OI, funding rate
+- Orderbook: `/perps/markets/{symbol}/orderbook` — available but not yet used
+- **No per-account API** — fills are public market data only (no wallet-scoped history)
+- Sodex trade IDs are large integers (not 0x hashes); `verifySodexTrade()` matches by ID + side + price ±2%
 
 **SoSoValue:**
 - Kline/chart data — entry/exit chart embeds on win posts and Pain Room cards

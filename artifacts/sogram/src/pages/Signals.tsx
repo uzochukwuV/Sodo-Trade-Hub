@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { useListSignals, useLikeSignal, useGetMarketPrices, useGetMarketKlines } from "@workspace/api-client-react";
-import type { SignalFull, LiveMarketPrice } from "@workspace/api-client-react";
+import { useListSignals, useLikeSignal, useGetMarketPrices, useGetMarketKlines, useGetMarketFills } from "@workspace/api-client-react";
+import type { SignalFull, LiveMarketPrice, SodexFill } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function timeAgo(iso: string) {
@@ -416,6 +416,61 @@ function SignalAccuracyCard({ signals }: { signals: SignalFull[] }) {
   );
 }
 
+function SodexFillsStrip({ symbol }: { symbol: string }) {
+  const { data } = useGetMarketFills(encodeURIComponent(symbol), { limit: 20 }, {
+    query: { queryKey: ["fills", symbol], staleTime: 15_000, refetchInterval: 15_000 },
+  });
+
+  const fills: SodexFill[] = data?.fills ?? [];
+  if (fills.length === 0) return null;
+
+  const recentBuys = fills.filter(f => f.side === "BUY").length;
+  const recentSells = fills.filter(f => f.side === "SELL").length;
+  const total = fills.length;
+  const buyPct = total > 0 ? Math.round((recentBuys / total) * 100) : 50;
+
+  return (
+    <div className="border border-border bg-card mb-4">
+      <div className="px-4 py-2 border-b border-border flex items-center gap-3">
+        <span className="text-[9px] font-extrabold tracking-widest text-muted-foreground">
+          SODEX LIVE FILLS · {symbol.split("/")[0]}
+        </span>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-green-400 text-[9px] font-bold">{recentBuys}B</span>
+          <div className="w-20 h-1 bg-destructive/40 overflow-hidden">
+            <div className="h-full bg-green-400/70 transition-all" style={{ width: `${buyPct}%` }} />
+          </div>
+          <span className="text-destructive text-[9px] font-bold">{recentSells}S</span>
+        </div>
+        <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+      </div>
+      <div className="flex overflow-x-auto gap-0 divide-x divide-border/40 scrollbar-none">
+        {fills.slice(0, 8).map((f) => {
+          const isBuy = f.side === "BUY";
+          const secAgo = Math.round((Date.now() - f.time) / 1000);
+          const timeLabel = secAgo < 60 ? `${secAgo}s` : `${Math.round(secAgo / 60)}m`;
+          return (
+            <div key={f.tradeId} className="flex-shrink-0 px-3 py-2 min-w-[100px]">
+              <div className={`text-[9px] font-extrabold tracking-widest mb-0.5 ${isBuy ? "text-green-400" : "text-destructive"}`}>
+                {f.side}
+              </div>
+              <div className="text-white text-[11px] font-black font-mono">
+                ${Number(f.price).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              </div>
+              <div className="text-muted-foreground text-[9px] font-mono">
+                {Number(f.quantity).toFixed(4)} · {timeLabel} AGO
+              </div>
+              <div className="text-[8px] font-mono text-muted-foreground/50 mt-0.5 truncate">
+                #{f.tradeId.slice(0, 6)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Signals() {
   const [asset, setAsset] = useState("All");
   const [side, setSide] = useState<SideFilter>("All");
@@ -491,6 +546,8 @@ export default function Signals() {
       </div>
 
       {signals.length > 0 && <SignalAccuracyCard signals={signals} />}
+
+      {asset !== "All" && <SodexFillsStrip symbol={asset} />}
 
       {signals.length > 0 && (
         <div className="grid grid-cols-4 gap-0 border border-border bg-card mb-6">

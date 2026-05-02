@@ -97,12 +97,25 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
           </div>
 
           {(post as any).txHash && (
-            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 border border-accent/20 bg-accent/5">
+            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 border border-accent/20 bg-accent/5">
               <span className="text-accent text-[9px] font-extrabold tracking-widest">TX</span>
               <span className="text-accent/70 font-mono text-[10px]">
                 {String((post as any).txHash).slice(0, 6)}...{String((post as any).txHash).slice(-6)}
               </span>
-              <span className="text-muted-foreground text-[9px] ml-auto">ON-CHAIN VERIFIED</span>
+              <span className="text-muted-foreground text-[9px] ml-auto">EVM ON-CHAIN</span>
+            </div>
+          )}
+          {(post as any).sodexTradeId && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-1.5 border border-accent/30 bg-accent/8"
+              style={{ background: "rgba(212,255,0,0.04)", borderColor: "rgba(212,255,0,0.25)" }}>
+              <span className="text-accent text-[9px] font-extrabold tracking-widest">SODEX</span>
+              <span className="text-accent/60 font-mono text-[10px]">
+                #{String((post as any).sodexTradeId).slice(0, 8)}...
+              </span>
+              <span className="text-[9px] font-extrabold tracking-wider ml-auto"
+                style={{ color: "#D4FF00" }}>
+                ✓ SODEX VERIFIED
+              </span>
             </div>
           )}
 
