@@ -1,38 +1,61 @@
 import { Router, type IRouter } from "express";
 import { db, tradesTable, tradersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { CreateTradeBody, LikeTradeParams } from "@workspace/api-zod";
+import { LikeTradeParams } from "@workspace/api-zod";
+import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
 
 const router: IRouter = Router();
 
 router.post("/trades", async (req, res) => {
-  const parsed = CreateTradeBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const { traderId, asset, side, entryPrice, exitPrice, pnlUsd, pnlPct,
+          positionSize, leverage, isVerified, comment } = req.body;
+
+  if (!traderId || !asset || !side || entryPrice === undefined || exitPrice === undefined) {
+    res.status(400).json({ error: "Missing required fields" });
     return;
   }
-  const data = parsed.data;
+
   const [trade] = await db.insert(tradesTable).values({
-    traderId: data.traderId,
-    asset: data.asset,
-    side: data.side,
-    entryPrice: String(data.entryPrice),
-    exitPrice: String(data.exitPrice),
-    pnlUsd: String(data.pnlUsd),
-    pnlPct: String(data.pnlPct),
-    positionSize: String(data.positionSize),
-    leverage: data.leverage ?? 1,
-    isVerified: data.isVerified ?? false,
-    comment: data.comment,
+    traderId: Number(traderId),
+    asset,
+    side,
+    entryPrice: String(entryPrice),
+    exitPrice: String(exitPrice),
+    pnlUsd: String(pnlUsd ?? 0),
+    pnlPct: String(pnlPct ?? 0),
+    positionSize: String(positionSize ?? 0),
+    leverage: Number(leverage ?? 1),
+    isVerified: Boolean(isVerified ?? false),
+    comment: comment ?? null,
   }).returning();
 
-  const pnlNum = Number(data.pnlUsd);
+  const pnlNum = Number(pnlUsd ?? 0);
+  const isWin = pnlNum >= 0;
+
   await db.update(tradersTable)
     .set({
       tradeCount: sql`${tradersTable.tradeCount} + 1`,
       totalPnlUsd: sql`${tradersTable.totalPnlUsd} + ${pnlNum}`,
+      winRate: sql`
+        ROUND(
+          (SELECT COUNT(*)::numeric FROM trades WHERE trader_id = ${Number(traderId)} AND pnl_usd::numeric >= 0)
+          / NULLIF((SELECT COUNT(*) FROM trades WHERE trader_id = ${Number(traderId)}), 0) * 100,
+          2
+        )
+      `,
     })
-    .where(eq(tradersTable.id, data.traderId));
+    .where(eq(tradersTable.id, Number(traderId)));
+
+  await fireRepEvent(
+    Number(traderId),
+    isWin ? "trade_win" : "trade_loss",
+    isWin ? 0.5 : -0.3,
+    trade.id,
+    "trade",
+    `${asset} ${side} ${pnlNum >= 0 ? "+" : ""}${pnlNum}`
+  );
+
+  await recomputeRepScore(Number(traderId));
 
   res.status(201).json(trade);
 });

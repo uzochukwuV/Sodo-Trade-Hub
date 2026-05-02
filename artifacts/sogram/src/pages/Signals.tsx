@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useListSignals, useLikeSignal } from "@workspace/api-client-react";
-import type { SignalFull } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { SignalFull } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function timeAgo(iso: string) {
@@ -78,6 +78,16 @@ function SignalCard({ signal }: { signal: SignalFull }) {
                   signal.traderTier === "GOLD" ? "border-yellow-400/60 text-yellow-400" :
                   "border-border text-muted-foreground"
                 }`}>{signal.traderTier}</span>
+                {(signal as any).traderSignalAccuracy !== undefined && (
+                  <span className="text-[8px] font-extrabold tracking-wider text-blue-400 border border-blue-400/40 px-1.5 py-0.5">
+                    {Number((signal as any).traderSignalAccuracy).toFixed(0)}% SIG
+                  </span>
+                )}
+                {(signal as any).traderStreakDays > 0 && (
+                  <span className="text-[8px] font-extrabold tracking-wider text-accent border border-accent/40 px-1.5 py-0.5">
+                    🔥 {(signal as any).traderStreakDays}D
+                  </span>
+                )}
               </div>
               <div className="text-muted-foreground text-[10px] font-mono">@{signal.traderHandle} · REP {signal.traderRepScore.toFixed(0)}</div>
             </div>

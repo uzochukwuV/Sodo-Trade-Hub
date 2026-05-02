@@ -18,16 +18,20 @@ export default function Traders() {
   const [sortBy, setSortBy] = useState<SortKey>("repScore");
 
   const { data: tradersData, isLoading } = useListTraders(
-    { limit: 50, offset: 0, search: search || undefined },
+    { limit: 50 },
     { query: { queryKey: ["traders", search] } }
   );
 
-  const sorted = [...(tradersData?.traders ?? [])].sort((a, b) => {
+  const allTraders = (tradersData?.traders ?? []).filter(t =>
+    !search || t.username.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const sorted = [...allTraders].sort((a, b) => {
     if (sortBy === "repScore") return Number(b.repScore) - Number(a.repScore);
     if (sortBy === "winRate") return Number(b.winRate) - Number(a.winRate);
-    if (sortBy === "totalPnlUsd") return Number(b.totalPnlUsd) - Number(a.totalPnlUsd);
-    if (sortBy === "tradeCount") return b.tradeCount - a.tradeCount;
-    if (sortBy === "followerCount") return b.followerCount - a.followerCount;
+    if (sortBy === "totalPnlUsd") return Number(b.totalPnlUsd ?? 0) - Number(a.totalPnlUsd ?? 0);
+    if (sortBy === "tradeCount") return (b.tradeCount ?? 0) - (a.tradeCount ?? 0);
+    if (sortBy === "followerCount") return (b.followerCount ?? 0) - (a.followerCount ?? 0);
     return 0;
   });
 
@@ -105,7 +109,7 @@ export default function Traders() {
                 <div className="grid grid-cols-4 gap-3 border-t border-border pt-4">
                   <div>
                     <div className="text-muted-foreground text-[9px] font-bold tracking-wider mb-1">TOTAL PNL</div>
-                    <div className="text-accent font-black text-sm font-mono">{fmtPnl(trader.totalPnlUsd)}</div>
+                    <div className="text-accent font-black text-sm font-mono">{fmtPnl(trader.totalPnlUsd ?? "0")}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground text-[9px] font-bold tracking-wider mb-1">WIN RATE</div>
@@ -113,11 +117,11 @@ export default function Traders() {
                   </div>
                   <div>
                     <div className="text-muted-foreground text-[9px] font-bold tracking-wider mb-1">TRADES</div>
-                    <div className="text-white font-black text-sm font-mono">{trader.tradeCount}</div>
+                    <div className="text-white font-black text-sm font-mono">{trader.tradeCount ?? 0}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground text-[9px] font-bold tracking-wider mb-1">FOLLOWERS</div>
-                    <div className="text-white font-black text-sm font-mono">{trader.followerCount.toLocaleString()}</div>
+                    <div className="text-white font-black text-sm font-mono">{(trader.followerCount ?? 0).toLocaleString()}</div>
                   </div>
                 </div>
               </div>

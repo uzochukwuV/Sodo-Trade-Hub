@@ -69,17 +69,15 @@ export const GetFeedResponse = zod.object({
           traderTier: zod.string(),
           asset: zod.string(),
           side: zod.enum(["LONG", "SHORT"]),
-          entryZone: zod.string(),
-          target: zod.string(),
+          entryPrice: zod.string(),
+          targetPrice: zod.string(),
           stopLoss: zod.string(),
-          rrRatio: zod.string(),
           confidence: zod.number(),
-          caption: zod.string(),
-          tags: zod.array(zod.string()).optional(),
-          likes: zod.number().optional(),
-          followers: zod.number().optional(),
-          comments: zod.number().optional(),
-          createdAt: zod.string().optional(),
+          reasoning: zod.string(),
+          status: zod.string(),
+          likeCount: zod.number(),
+          isActive: zod.boolean(),
+          createdAt: zod.string(),
         })
         .optional(),
     }),
@@ -104,13 +102,26 @@ export const ListTradersResponse = zod.object({
       handle: zod.string(),
       bio: zod.string().optional(),
       repScore: zod.number(),
-      tier: zod.enum(["Elite", "Expert", "Rising"]),
-      isVerified: zod.boolean(),
-      followersCount: zod.number(),
-      copiersCount: zod.number(),
-      signalsCount: zod.number(),
-      pnl30d: zod.string(),
+      tier: zod.enum(["BRONZE", "SILVER", "GOLD", "DIAMOND"]),
+      isVerified: zod.boolean().optional(),
+      followersCount: zod.number().optional(),
+      copiersCount: zod.number().optional(),
+      signalsCount: zod.number().optional(),
+      pnl30d: zod.string().optional(),
       winRate: zod.number(),
+      totalPnlUsd: zod.string().optional(),
+      tradeCount: zod.number().optional(),
+      followerCount: zod.number().optional(),
+      signalAccuracy: zod.number().optional(),
+      validationAccuracy: zod.number().optional(),
+      mentorScore: zod.number().optional(),
+      streakDays: zod.number().optional(),
+      streakShields: zod.number().optional(),
+      totalSignals: zod.number().optional(),
+      signalsHit: zod.number().optional(),
+      signalsStopped: zod.number().optional(),
+      totalBreakdownsGiven: zod.number().optional(),
+      totalBreakdownsHelpful: zod.number().optional(),
       avgRR: zod.number().optional(),
       maxDrawdown: zod.number().optional(),
       avgHoldDays: zod.number().optional(),
@@ -144,13 +155,26 @@ export const GetTraderResponse = zod
     handle: zod.string(),
     bio: zod.string().optional(),
     repScore: zod.number(),
-    tier: zod.enum(["Elite", "Expert", "Rising"]),
-    isVerified: zod.boolean(),
-    followersCount: zod.number(),
-    copiersCount: zod.number(),
-    signalsCount: zod.number(),
-    pnl30d: zod.string(),
+    tier: zod.enum(["BRONZE", "SILVER", "GOLD", "DIAMOND"]),
+    isVerified: zod.boolean().optional(),
+    followersCount: zod.number().optional(),
+    copiersCount: zod.number().optional(),
+    signalsCount: zod.number().optional(),
+    pnl30d: zod.string().optional(),
     winRate: zod.number(),
+    totalPnlUsd: zod.string().optional(),
+    tradeCount: zod.number().optional(),
+    followerCount: zod.number().optional(),
+    signalAccuracy: zod.number().optional(),
+    validationAccuracy: zod.number().optional(),
+    mentorScore: zod.number().optional(),
+    streakDays: zod.number().optional(),
+    streakShields: zod.number().optional(),
+    totalSignals: zod.number().optional(),
+    signalsHit: zod.number().optional(),
+    signalsStopped: zod.number().optional(),
+    totalBreakdownsGiven: zod.number().optional(),
+    totalBreakdownsHelpful: zod.number().optional(),
     avgRR: zod.number().optional(),
     maxDrawdown: zod.number().optional(),
     avgHoldDays: zod.number().optional(),
@@ -188,6 +212,43 @@ export const GetTraderResponse = zod
       pnlCurve: zod.array(zod.number()),
     }),
   );
+
+/**
+ * @summary Get a trader's multi-dimensional reputation breakdown
+ */
+export const GetTraderReputationParams = zod.object({
+  traderId: zod.coerce.number(),
+});
+
+export const GetTraderReputationResponse = zod.object({
+  traderId: zod.number(),
+  username: zod.string(),
+  repScore: zod.number(),
+  tier: zod.string(),
+  winRate: zod.number(),
+  signalAccuracy: zod.number(),
+  validationAccuracy: zod.number(),
+  mentorScore: zod.number(),
+  streakDays: zod.number(),
+  streakShields: zod.number(),
+  totalSignals: zod.number().optional(),
+  signalsHit: zod.number().optional(),
+  signalsStopped: zod.number().optional(),
+  totalBreakdownsGiven: zod.number().optional(),
+  totalBreakdownsHelpful: zod.number().optional(),
+  recentEvents: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        eventType: zod.string(),
+        delta: zod.number(),
+        sourceType: zod.string().optional(),
+        meta: zod.string().optional(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
 
 /**
  * @summary Get a trader's trade history
@@ -260,6 +321,22 @@ export const LikeTradeParams = zod.object({
 export const LikeTradeResponse = zod.object({
   likes: zod.number(),
   liked: zod.boolean(),
+});
+
+/**
+ * @summary Mark a signal as hit or stopped (fires reputation event)
+ */
+export const ResolveSignalParams = zod.object({
+  signalId: zod.coerce.number(),
+});
+
+export const ResolveSignalBody = zod.object({
+  outcome: zod.enum(["hit", "stopped"]),
+});
+
+export const ResolveSignalResponse = zod.object({
+  ok: zod.boolean(),
+  status: zod.string(),
 });
 
 /**
@@ -548,6 +625,17 @@ export const GetAnalyticsSummaryResponse = zod.object({
       shortsPct: zod.number(),
     }),
   ),
+  pairAnalytics: zod
+    .array(
+      zod.object({
+        pair: zod.string(),
+        shareOfTraders: zod.number(),
+        volume: zod.string(),
+        longsPct: zod.number(),
+        shortsPct: zod.number(),
+      }),
+    )
+    .optional(),
   leverageDistribution: zod.array(
     zod.object({
       label: zod.string(),
@@ -559,6 +647,22 @@ export const GetAnalyticsSummaryResponse = zod.object({
   overallShortPct: zod.number(),
   avgLeverage: zod.number(),
   activeTraders: zod.number(),
+  totalTraders: zod.number().optional(),
+  avgRepScore: zod.number().optional(),
+  avgWinRate: zod.number().optional(),
+  totalTrades: zod.number().optional(),
+  totalVolume: zod.string().optional(),
+  totalPnl: zod.string().optional(),
+  topTraders: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        username: zod.string(),
+        tier: zod.string(),
+        totalPnlUsd: zod.string(),
+      }),
+    )
+    .optional(),
   macroEvents: zod.array(
     zod.object({
       label: zod.string(),

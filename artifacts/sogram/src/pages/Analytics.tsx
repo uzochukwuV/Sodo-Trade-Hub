@@ -13,10 +13,10 @@ export default function Analytics() {
   const { data: whalesData, isLoading: isLoadingWhales } = useGetWhaleActivity({ query: { queryKey: ["whaleActivity"] } });
 
   const macroStats = summary ? [
-    { label: "TOTAL TRADERS", value: summary.totalTraders.toString(), note: "ACTIVE ON PLATFORM", direction: "up" as const },
-    { label: "AVG WIN RATE", value: `${summary.avgWinRate.toFixed(1)}%`, note: "PLATFORM AVERAGE", direction: "up" as const },
-    { label: "TOTAL TRADES", value: summary.totalTrades.toLocaleString(), note: "ALL TIME", direction: null },
-    { label: "TOTAL PNL", value: fmtNum(Number(summary.totalPnl)), note: "NET REALIZED", direction: Number(summary.totalPnl) >= 0 ? "up" as const : "down" as const },
+    { label: "TOTAL TRADERS", value: (summary.totalTraders ?? summary.activeTraders ?? 0).toString(), note: "ACTIVE ON PLATFORM", direction: "up" as const },
+    { label: "AVG WIN RATE", value: `${(summary.avgWinRate ?? 0).toFixed(1)}%`, note: "PLATFORM AVERAGE", direction: "up" as const },
+    { label: "TOTAL TRADES", value: (summary.totalTrades ?? 0).toLocaleString(), note: "ALL TIME", direction: null },
+    { label: "TOTAL PNL", value: fmtNum(Number(summary.totalPnl ?? 0)), note: "NET REALIZED", direction: Number(summary.totalPnl ?? 0) >= 0 ? "up" as const : "down" as const },
   ] : [];
 
   return (
@@ -40,13 +40,13 @@ export default function Analytics() {
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="border border-border p-6 bg-card">
           <div className="font-black text-[13px] tracking-wider text-white mb-1">CROWD POSITIONS</div>
-          <div className="text-muted-foreground text-[11px] mb-5 uppercase tracking-wider">BY OPEN INTEREST · {summary?.totalTraders ?? "—"} TRADERS</div>
+          <div className="text-muted-foreground text-[11px] mb-5 uppercase tracking-wider">BY OPEN INTEREST · {summary?.totalTraders ?? summary?.activeTraders ?? "—"} TRADERS</div>
 
           {isLoadingSummary ? (
             <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : (
             <div className="flex flex-col gap-4">
-              {summary?.pairAnalytics?.map(row => (
+              {(summary?.pairAnalytics ?? summary?.crowdPositions ?? []).map(row => (
                 <div key={row.pair}>
                   <div className="flex justify-between mb-1.5">
                     <div className="flex items-center gap-2.5">
@@ -54,17 +54,17 @@ export default function Analytics() {
                       <span className="text-muted-foreground text-[11px] font-mono">{fmtNum(Number(row.volume))}</span>
                     </div>
                     <div className="flex gap-2.5 items-center">
-                      <span className="text-accent text-[11px] font-mono font-bold">{row.longPct}%L</span>
-                      <span className="text-destructive text-[11px] font-mono font-bold">{row.shortPct}%S</span>
+                      <span className="text-accent text-[11px] font-mono font-bold">{(row.longsPct ?? (row as {longPct?: number}).longPct ?? 0)}%L</span>
+                      <span className="text-destructive text-[11px] font-mono font-bold">{(row.shortsPct ?? (row as {shortPct?: number}).shortPct ?? 0)}%S</span>
                     </div>
                   </div>
                   <div className="h-[3px] flex overflow-hidden bg-border">
-                    <div className="bg-accent/70" style={{ width: `${row.longPct}%` }} />
+                    <div className="bg-accent/70" style={{ width: `${row.longsPct ?? (row as {longPct?: number}).longPct ?? 0}%` }} />
                     <div className="bg-destructive/50 flex-1" />
                   </div>
                 </div>
               ))}
-              {(!summary?.pairAnalytics || summary.pairAnalytics.length === 0) && (
+              {(!(summary?.pairAnalytics ?? summary?.crowdPositions) || (summary?.pairAnalytics ?? summary?.crowdPositions ?? []).length === 0) && (
                 <div className="text-muted-foreground text-sm font-bold tracking-wider text-center py-6">NO DATA</div>
               )}
             </div>

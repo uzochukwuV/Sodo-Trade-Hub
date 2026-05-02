@@ -16,9 +16,10 @@ export interface ErrorResponse {
 export type TraderTier = (typeof TraderTier)[keyof typeof TraderTier];
 
 export const TraderTier = {
-  Elite: "Elite",
-  Expert: "Expert",
-  Rising: "Rising",
+  BRONZE: "BRONZE",
+  SILVER: "SILVER",
+  GOLD: "GOLD",
+  DIAMOND: "DIAMOND",
 } as const;
 
 export interface Trader {
@@ -28,12 +29,25 @@ export interface Trader {
   bio?: string;
   repScore: number;
   tier: TraderTier;
-  isVerified: boolean;
-  followersCount: number;
-  copiersCount: number;
-  signalsCount: number;
-  pnl30d: string;
+  isVerified?: boolean;
+  followersCount?: number;
+  copiersCount?: number;
+  signalsCount?: number;
+  pnl30d?: string;
   winRate: number;
+  totalPnlUsd?: string;
+  tradeCount?: number;
+  followerCount?: number;
+  signalAccuracy?: number;
+  validationAccuracy?: number;
+  mentorScore?: number;
+  streakDays?: number;
+  streakShields?: number;
+  totalSignals?: number;
+  signalsHit?: number;
+  signalsStopped?: number;
+  totalBreakdownsGiven?: number;
+  totalBreakdownsHelpful?: number;
   avgRR?: number;
   maxDrawdown?: number;
   avgHoldDays?: number;
@@ -77,6 +91,34 @@ export type TraderProfile = Trader & {
   recentTrades: Trade[];
   pnlCurve: number[];
 };
+
+export interface ReputationEvent {
+  id: number;
+  eventType: string;
+  delta: number;
+  sourceType?: string;
+  meta?: string;
+  createdAt: string;
+}
+
+export interface ReputationBreakdown {
+  traderId: number;
+  username: string;
+  repScore: number;
+  tier: string;
+  winRate: number;
+  signalAccuracy: number;
+  validationAccuracy: number;
+  mentorScore: number;
+  streakDays: number;
+  streakShields: number;
+  totalSignals?: number;
+  signalsHit?: number;
+  signalsStopped?: number;
+  totalBreakdownsGiven?: number;
+  totalBreakdownsHelpful?: number;
+  recentEvents?: ReputationEvent[];
+}
 
 export interface CreateTraderBody {
   username: string;
@@ -125,17 +167,15 @@ export interface Signal {
   traderTier: string;
   asset: string;
   side: SignalSide;
-  entryZone: string;
-  target: string;
+  entryPrice: string;
+  targetPrice: string;
   stopLoss: string;
-  rrRatio: string;
   confidence: number;
-  caption: string;
-  tags?: string[];
-  likes?: number;
-  followers?: number;
-  comments?: number;
-  createdAt?: string;
+  reasoning: string;
+  status: string;
+  likeCount: number;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export type SignalFullSide =
@@ -277,13 +317,28 @@ export interface MacroEvent {
   direction: MacroEventDirection;
 }
 
+export interface TopTrader {
+  id: number;
+  username: string;
+  tier: string;
+  totalPnlUsd: string;
+}
+
 export interface AnalyticsSummary {
   crowdPositions: PairAnalytics[];
+  pairAnalytics?: PairAnalytics[];
   leverageDistribution: LeverageBucket[];
   overallLongPct: number;
   overallShortPct: number;
   avgLeverage: number;
   activeTraders: number;
+  totalTraders?: number;
+  avgRepScore?: number;
+  avgWinRate?: number;
+  totalTrades?: number;
+  totalVolume?: string;
+  totalPnl?: string;
+  topTraders?: TopTrader[];
   macroEvents: MacroEvent[];
 }
 
@@ -467,6 +522,23 @@ export type GetTraderTrades200 = {
 export type LikeTrade200 = {
   likes: number;
   liked: boolean;
+};
+
+export type ResolveSignalBodyOutcome =
+  (typeof ResolveSignalBodyOutcome)[keyof typeof ResolveSignalBodyOutcome];
+
+export const ResolveSignalBodyOutcome = {
+  hit: "hit",
+  stopped: "stopped",
+} as const;
+
+export type ResolveSignalBody = {
+  outcome: ResolveSignalBodyOutcome;
+};
+
+export type ResolveSignal200 = {
+  ok: boolean;
+  status: string;
 };
 
 export type ListSignalsParams = {

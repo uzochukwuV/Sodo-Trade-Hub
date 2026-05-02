@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, painRoomsTable, breakdownsTable, tradersTable } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
+import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
 
 const router: IRouter = Router();
 
-function formatPainRoom(pr: typeof painRoomsTable.$inferSelect, trader: typeof tradersTable.$inferSelect, breakdowns: any[]) {
+function formatPainRoom(pr: typeof painRoomsTable.$inferSelect, trader: typeof tradersTable.$inferSelect, breakdowns: ReturnType<typeof formatBreakdown>[]) {
   return {
     id: pr.id,
     traderId: pr.traderId,
@@ -12,6 +13,8 @@ function formatPainRoom(pr: typeof painRoomsTable.$inferSelect, trader: typeof t
     traderHandle: pr.isAnonymous ? "anon" : trader.handle,
     traderRepScore: pr.isAnonymous ? 0 : trader.repScore,
     traderTier: pr.isAnonymous ? "SILVER" : trader.tier,
+    traderStreakDays: pr.isAnonymous ? 0 : trader.streakDays,
+    traderStreakShields: pr.isAnonymous ? 0 : trader.streakShields,
     asset: pr.asset,
     side: pr.side,
     entryPrice: pr.entryPrice,
@@ -40,6 +43,8 @@ function formatBreakdown(bd: typeof breakdownsTable.$inferSelect, responder: typ
     responderHandle: responder.handle,
     responderRepScore: responder.repScore,
     responderTier: responder.tier,
+    responderMentorScore: responder.mentorScore,
+    responderStreakDays: responder.streakDays,
     whatFailed: bd.whatFailed,
     dataShowed: bd.dataShowed,
     doDifferently: bd.doDifferently,
@@ -109,6 +114,10 @@ router.post("/pain-rooms/:painRoomId/breakdowns", async (req, res) => {
     await db.update(painRoomsTable)
       .set({ breakdownCount: sql`${painRoomsTable.breakdownCount} + 1` })
       .where(eq(painRoomsTable.id, painRoomId));
+
+    await fireRepEvent(responderId, "breakdown_given", 0.5, bd.id, "breakdown");
+    await recomputeRepScore(responderId);
+
     const [responder] = await db.select().from(tradersTable).where(eq(tradersTable.id, responderId));
     res.status(201).json(formatBreakdown(bd, responder));
   } catch (err) {
@@ -121,12 +130,20 @@ router.post("/pain-rooms/:painRoomId/resolve/:breakdownId", async (req, res) => 
   try {
     const painRoomId = Number(req.params.painRoomId);
     const breakdownId = Number(req.params.breakdownId);
+
     await db.update(painRoomsTable)
       .set({ isResolved: true, resolvedBreakdownId: breakdownId })
       .where(eq(painRoomsTable.id, painRoomId));
     await db.update(breakdownsTable)
       .set({ isMarkedHelpful: true })
       .where(eq(breakdownsTable.id, breakdownId));
+
+    const [bd] = await db.select().from(breakdownsTable).where(eq(breakdownsTable.id, breakdownId));
+    if (bd) {
+      await fireRepEvent(bd.responderId, "breakdown_helpful", 3, bd.id, "breakdown");
+      await recomputeRepScore(bd.responderId);
+    }
+
     res.json({ ok: true });
   } catch (err) {
     req.log.error(err, "Failed to resolve breakdown");

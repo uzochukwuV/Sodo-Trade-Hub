@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useGetFeed, useLikeTrade, useLikeSignal } from "@workspace/api-client-react";
-import type { FeedItem } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { FeedItem } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
@@ -59,11 +59,11 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             <span className="text-white font-extrabold text-sm tracking-wide">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <Tag label="WIN" accent={isWin} danger={!isWin} />
-            <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.closedAt)}</span>
+            <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt)}</span>
           </div>
 
-          {post.comment && (
-            <p className="text-muted-foreground text-[13px] leading-relaxed mb-4">{post.comment}</p>
+          {post.caption && (
+            <p className="text-muted-foreground text-[13px] leading-relaxed mb-4">{post.caption}</p>
           )}
 
           <div className="border border-border p-4 mb-3.5 bg-card">
@@ -72,7 +72,7 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
                 <span className="text-white font-black text-[17px] tracking-wide">{post.asset}</span>
                 <Tag label={post.side} accent={isLong} danger={!isLong} />
                 <Tag label={`${post.leverage}×`} />
-                {post.isVerified && <Tag label="VERIFIED" accent />}
+                {post.isOnChainVerified && <Tag label="VERIFIED" accent />}
               </div>
               <div className="text-right">
                 <div className={`font-black text-[22px] font-mono tracking-tighter ${isWin ? "text-accent" : "text-destructive"}`}>
@@ -106,7 +106,7 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
                 liked ? "text-accent" : "text-muted-foreground"
               }`}
             >
-              ♥ {post.likeCount + (liked ? 1 : 0)}
+              ♥ {post.likes + (liked ? 1 : 0)}
             </button>
             <Button className="ml-auto bg-accent text-background hover:bg-accent/90 px-4 py-1.5 font-extrabold text-xs tracking-wide h-auto">
               COPY TRADE
@@ -122,8 +122,11 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
   const { mutate: likeSignal } = useLikeSignal();
   const [liked, setLiked] = useState(false);
   const isLong = post.side === "LONG";
-  const rr = post.targetPrice > post.entryPrice && post.entryPrice > post.stopLoss
-    ? ((post.targetPrice - post.entryPrice) / (post.entryPrice - post.stopLoss)).toFixed(1)
+  const entryN = Number(post.entryPrice);
+  const targetN = Number(post.targetPrice);
+  const stopN = Number(post.stopLoss);
+  const rr = entryN && targetN && stopN && entryN > stopN
+    ? ((targetN - entryN) / (entryN - stopN)).toFixed(1)
     : "—";
 
   return (
@@ -137,7 +140,7 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
             <span className="bg-transparent border border-accent/60 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">
               SIGNAL
             </span>
-            <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt)}</span>
+            <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt ?? "")}</span>
           </div>
 
           {post.reasoning && (
@@ -160,9 +163,9 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
             </div>
             <div className="grid grid-cols-4 gap-3">
               {([
-                ["ENTRY", fmt(post.entryPrice)],
-                ["TARGET", fmt(post.targetPrice)],
-                ["STOP", fmt(post.stopLoss)],
+                ["ENTRY", fmt(Number(post.entryPrice))],
+                ["TARGET", fmt(Number(post.targetPrice))],
+                ["STOP", fmt(Number(post.stopLoss))],
                 ["R:R", `${rr}:1`],
               ] as [string, string][]).map(([l, v]) => (
                 <div key={l}>

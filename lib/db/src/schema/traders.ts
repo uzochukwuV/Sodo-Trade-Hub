@@ -14,6 +14,17 @@ export const tradersTable = pgTable("traders", {
   winRate: numeric("win_rate", { precision: 5, scale: 2 }).notNull().default("0"),
   tradeCount: integer("trade_count").notNull().default(0),
   followerCount: integer("follower_count").notNull().default(0),
+  // Reputation dimensions
+  signalAccuracy: numeric("signal_accuracy", { precision: 5, scale: 2 }).notNull().default("0"),
+  validationAccuracy: numeric("validation_accuracy", { precision: 5, scale: 2 }).notNull().default("0"),
+  mentorScore: numeric("mentor_score", { precision: 5, scale: 2 }).notNull().default("0"),
+  streakDays: integer("streak_days").notNull().default(0),
+  streakShields: integer("streak_shields").notNull().default(0),
+  totalSignals: integer("total_signals").notNull().default(0),
+  signalsHit: integer("signals_hit").notNull().default(0),
+  signalsStopped: integer("signals_stopped").notNull().default(0),
+  totalBreakdownsGiven: integer("total_breakdowns_given").notNull().default(0),
+  totalBreakdownsHelpful: integer("total_breakdowns_helpful").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

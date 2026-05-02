@@ -1,9 +1,10 @@
-import { db, tradersTable, tradesTable, signalsTable, copyConfigsTable, painRoomsTable, breakdownsTable } from "@workspace/db";
+import { db, tradersTable, tradesTable, signalsTable, copyConfigsTable, painRoomsTable, breakdownsTable, reputationEventsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 async function seed() {
   console.log("Seeding database...");
 
+  await db.delete(reputationEventsTable);
   await db.delete(breakdownsTable);
   await db.delete(painRoomsTable);
   await db.delete(copyConfigsTable);
@@ -22,6 +23,16 @@ async function seed() {
       winRate: "78.3",
       tradeCount: 412,
       followerCount: 8420,
+      signalAccuracy: "82.4",
+      validationAccuracy: "0",
+      mentorScore: "61.0",
+      streakDays: 9,
+      streakShields: 2,
+      totalSignals: 58,
+      signalsHit: 48,
+      signalsStopped: 10,
+      totalBreakdownsGiven: 12,
+      totalBreakdownsHelpful: 8,
     },
     {
       username: "SolanaKing",
@@ -33,6 +44,16 @@ async function seed() {
       winRate: "71.5",
       tradeCount: 289,
       followerCount: 3210,
+      signalAccuracy: "74.1",
+      validationAccuracy: "0",
+      mentorScore: "48.5",
+      streakDays: 4,
+      streakShields: 1,
+      totalSignals: 34,
+      signalsHit: 25,
+      signalsStopped: 9,
+      totalBreakdownsGiven: 8,
+      totalBreakdownsHelpful: 4,
     },
     {
       username: "EthDegenX",
@@ -44,6 +65,16 @@ async function seed() {
       winRate: "65.2",
       tradeCount: 178,
       followerCount: 1850,
+      signalAccuracy: "68.9",
+      validationAccuracy: "0",
+      mentorScore: "22.0",
+      streakDays: 0,
+      streakShields: 0,
+      totalSignals: 22,
+      signalsHit: 15,
+      signalsStopped: 7,
+      totalBreakdownsGiven: 3,
+      totalBreakdownsHelpful: 1,
     },
     {
       username: "ArbArbitrage",
@@ -55,6 +86,16 @@ async function seed() {
       winRate: "68.9",
       tradeCount: 521,
       followerCount: 940,
+      signalAccuracy: "71.2",
+      validationAccuracy: "0",
+      mentorScore: "31.0",
+      streakDays: 2,
+      streakShields: 0,
+      totalSignals: 41,
+      signalsHit: 29,
+      signalsStopped: 12,
+      totalBreakdownsGiven: 6,
+      totalBreakdownsHelpful: 2,
     },
     {
       username: "BNBBull",
@@ -66,6 +107,16 @@ async function seed() {
       winRate: "61.3",
       tradeCount: 133,
       followerCount: 580,
+      signalAccuracy: "59.4",
+      validationAccuracy: "0",
+      mentorScore: "15.0",
+      streakDays: 0,
+      streakShields: 1,
+      totalSignals: 17,
+      signalsHit: 10,
+      signalsStopped: 7,
+      totalBreakdownsGiven: 2,
+      totalBreakdownsHelpful: 0,
     },
     {
       username: "OpTrader",
@@ -77,6 +128,16 @@ async function seed() {
       winRate: "55.0",
       tradeCount: 67,
       followerCount: 210,
+      signalAccuracy: "52.0",
+      validationAccuracy: "0",
+      mentorScore: "8.0",
+      streakDays: 1,
+      streakShields: 0,
+      totalSignals: 10,
+      signalsHit: 5,
+      signalsStopped: 5,
+      totalBreakdownsGiven: 1,
+      totalBreakdownsHelpful: 0,
     },
     {
       username: "VolatilityVince",
@@ -88,6 +149,16 @@ async function seed() {
       winRate: "63.8",
       tradeCount: 244,
       followerCount: 720,
+      signalAccuracy: "66.7",
+      validationAccuracy: "0",
+      mentorScore: "28.0",
+      streakDays: 3,
+      streakShields: 1,
+      totalSignals: 27,
+      signalsHit: 18,
+      signalsStopped: 9,
+      totalBreakdownsGiven: 5,
+      totalBreakdownsHelpful: 2,
     },
     {
       username: "DeepValueDan",
@@ -99,6 +170,16 @@ async function seed() {
       winRate: "69.2",
       tradeCount: 91,
       followerCount: 2100,
+      signalAccuracy: "77.8",
+      validationAccuracy: "0",
+      mentorScore: "55.0",
+      streakDays: 6,
+      streakShields: 2,
+      totalSignals: 18,
+      signalsHit: 14,
+      signalsStopped: 4,
+      totalBreakdownsGiven: 11,
+      totalBreakdownsHelpful: 7,
     },
     {
       username: "RiskMgr",
@@ -110,6 +191,16 @@ async function seed() {
       winRate: "74.6",
       tradeCount: 318,
       followerCount: 5800,
+      signalAccuracy: "79.5",
+      validationAccuracy: "0",
+      mentorScore: "88.0",
+      streakDays: 12,
+      streakShields: 3,
+      totalSignals: 44,
+      signalsHit: 35,
+      signalsStopped: 9,
+      totalBreakdownsGiven: 28,
+      totalBreakdownsHelpful: 22,
     },
     {
       username: "MacroMike",
@@ -121,6 +212,16 @@ async function seed() {
       winRate: "72.1",
       tradeCount: 156,
       followerCount: 4200,
+      signalAccuracy: "76.3",
+      validationAccuracy: "0",
+      mentorScore: "72.0",
+      streakDays: 7,
+      streakShields: 2,
+      totalSignals: 38,
+      signalsHit: 29,
+      signalsStopped: 9,
+      totalBreakdownsGiven: 19,
+      totalBreakdownsHelpful: 14,
     },
   ]).returning();
 
@@ -152,7 +253,6 @@ async function seed() {
     { followerId: traders[5].id, leaderId: traders[1].id, isActive: false, maxPositionSizeUsd: "100", maxLeverage: 2, stopLossPct: "15" },
   ]);
 
-  // Pain rooms — verified community losses
   const painRooms = await db.insert(painRoomsTable).values([
     {
       traderId: traders[2].id,
@@ -265,10 +365,23 @@ async function seed() {
     },
   ]).returning();
 
-  // Update breakdown counts and resolved states
   await db.execute(sql`UPDATE pain_rooms SET breakdown_count = 2 WHERE id IN (${painRooms[0].id}, ${painRooms[1].id})`);
   await db.execute(sql`UPDATE pain_rooms SET breakdown_count = 1 WHERE id IN (${painRooms[2].id}, ${painRooms[3].id})`);
   await db.execute(sql`UPDATE pain_rooms SET is_resolved = true, resolved_breakdown_id = ${breakdowns[4].id} WHERE id = ${painRooms[2].id}`);
+
+  // Seed reputation events for MacroMike and RiskMgr to populate their history
+  await db.insert(reputationEventsTable).values([
+    { traderId: traders[9].id, eventType: "breakdown_helpful", delta: "3", sourceId: breakdowns[0].id, sourceType: "breakdown", meta: "ETH/USDT thesis breakdown" },
+    { traderId: traders[9].id, eventType: "breakdown_given", delta: "0.5", sourceId: breakdowns[5].id, sourceType: "breakdown", meta: "ARB thesis breakdown" },
+    { traderId: traders[8].id, eventType: "breakdown_helpful", delta: "3", sourceId: breakdowns[4].id, sourceType: "breakdown", meta: "SOL exit timing breakdown" },
+    { traderId: traders[8].id, eventType: "breakdown_given", delta: "0.5", sourceId: breakdowns[1].id, sourceType: "breakdown", meta: "ETH risk management" },
+    { traderId: traders[0].id, eventType: "trade_win", delta: "0.5", sourceId: 1, sourceType: "trade", meta: "BTC/USDT LONG +$84,350" },
+    { traderId: traders[0].id, eventType: "trade_win", delta: "0.5", sourceId: 2, sourceType: "trade", meta: "ETH/USDT LONG +$23,700" },
+    { traderId: traders[0].id, eventType: "signal_hit", delta: "1", sourceId: 1, sourceType: "signal", meta: "BTC/USDT LONG signal" },
+    { traderId: traders[1].id, eventType: "trade_win", delta: "0.5", sourceId: 3, sourceType: "trade", meta: "SOL/USDT LONG +$47,500" },
+    { traderId: traders[2].id, eventType: "trade_loss", delta: "-0.3", sourceId: null, sourceType: "trade", meta: "ETH/USDT LONG loss" },
+    { traderId: traders[3].id, eventType: "trade_loss", delta: "-0.3", sourceId: null, sourceType: "trade", meta: "ARB/USDT LONG loss" },
+  ]);
 
   console.log(`Seed complete: ${traders.length} traders, ${painRooms.length} pain rooms, ${breakdowns.length} breakdowns.`);
   process.exit(0);

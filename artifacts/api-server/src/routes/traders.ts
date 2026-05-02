@@ -16,7 +16,10 @@ router.get("/traders", async (req, res) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { limit, offset, search } = parsed.data;
+  const { limit } = parsed.data;
+  const offset = Number(req.query.offset ?? 0);
+  const search = req.query.search ? String(req.query.search) : undefined;
+
   let q = db.select().from(tradersTable).orderBy(desc(tradersTable.repScore)).limit(limit).offset(offset);
   if (search) {
     q = db.select().from(tradersTable).where(ilike(tradersTable.username, `%${search}%`)).orderBy(desc(tradersTable.repScore)).limit(limit).offset(offset) as typeof q;
@@ -59,7 +62,8 @@ router.get("/traders/:traderId/trades", async (req, res) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { limit, offset } = parsed.data;
+  const { limit } = parsed.data;
+  const offset = Number(req.query.offset ?? 0);
   const trades = await db.select().from(tradesTable)
     .where(eq(tradesTable.traderId, traderId))
     .orderBy(desc(tradesTable.createdAt))

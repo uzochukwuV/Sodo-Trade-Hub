@@ -125,19 +125,34 @@ export default function CopyTrading() {
                     </div>
                     {isSelected && <span className="text-accent text-sm font-black">✓</span>}
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2 mb-3">
                     <div>
                       <div className="text-muted-foreground text-[9px] font-extrabold tracking-wider mb-1">TOTAL PNL</div>
-                      <div className="text-accent text-sm font-black font-mono">{fmtPnl(l.totalPnlUsd)}</div>
+                      <div className="text-accent text-sm font-black font-mono">{fmtPnl(l.totalPnlUsd ?? "0")}</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground text-[9px] font-extrabold tracking-wider mb-1">WIN RATE</div>
                       <div className="text-white text-sm font-black font-mono">{Number(l.winRate).toFixed(0)}%</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-[9px] font-extrabold tracking-wider mb-1">FOLLOWERS</div>
-                      <div className="text-white text-sm font-black font-mono">{l.followerCount.toLocaleString()}</div>
+                      <div className="text-muted-foreground text-[9px] font-extrabold tracking-wider mb-1">SIG ACC</div>
+                      <div className="text-blue-400 text-sm font-black font-mono">{Number(l.signalAccuracy ?? 0).toFixed(0)}%</div>
                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[
+                      { label: "WIN", val: Number(l.winRate), color: "bg-accent" },
+                      { label: "SIG", val: Number(l.signalAccuracy ?? 0), color: "bg-blue-400" },
+                      { label: "MNT", val: Number(l.mentorScore ?? 0), color: "bg-purple-400" },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className="text-[8px] font-extrabold tracking-wider text-muted-foreground w-6">{label}</span>
+                        <div className="flex-1 h-[2px] bg-border">
+                          <div className={`h-full ${color}`} style={{ width: `${val}%` }} />
+                        </div>
+                        <span className="text-[9px] font-mono text-muted-foreground w-7 text-right">{val.toFixed(0)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
@@ -174,23 +189,30 @@ export default function CopyTrading() {
                   <Toggle value={active} onChange={setActive} />
                 </div>
                 <div className="border border-border p-4 bg-background">
-                  <div className="text-muted-foreground text-[10px] font-extrabold tracking-wider mb-2">LEADER STATS</div>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="text-muted-foreground text-[10px] font-extrabold tracking-wider mb-3">LEADER REPUTATION</div>
+                  <div className="space-y-2">
+                    {[
+                      { label: "WIN RATE",         val: Number(leader.winRate),                  color: "bg-accent" },
+                      { label: "SIGNAL ACCURACY",  val: Number(leader.signalAccuracy ?? 0),      color: "bg-blue-400" },
+                      { label: "MENTOR SCORE",     val: Number(leader.mentorScore ?? 0),         color: "bg-purple-400" },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className="text-[8px] font-extrabold tracking-wider text-muted-foreground w-[100px]">{label}</span>
+                        <div className="flex-1 h-[2px] bg-border">
+                          <div className={`h-full ${color}`} style={{ width: `${val}%` }} />
+                        </div>
+                        <span className="text-[9px] font-mono text-white w-8 text-right">{val.toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-border">
                     <div>
-                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">TOTAL PNL</div>
-                      <div className="text-accent font-black font-mono">{fmtPnl(leader.totalPnlUsd)}</div>
+                      <div className="text-muted-foreground text-[8px] font-bold tracking-wider">STREAK</div>
+                      <div className="text-accent font-black font-mono text-sm">{leader.streakDays ?? 0}D</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">WIN RATE</div>
-                      <div className="text-white font-black font-mono">{Number(leader.winRate).toFixed(1)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">REP SCORE</div>
-                      <div className="text-white font-black font-mono">{Number(leader.repScore).toFixed(1)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">FOLLOWERS</div>
-                      <div className="text-white font-black font-mono">{leader.followerCount.toLocaleString()}</div>
+                      <div className="text-muted-foreground text-[8px] font-bold tracking-wider">SHIELDS</div>
+                      <div className="text-yellow-400 font-black font-mono text-sm">{leader.streakShields ?? 0}/3</div>
                     </div>
                   </div>
                 </div>

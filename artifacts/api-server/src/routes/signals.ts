@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, signalsTable, tradersTable } from "@workspace/db";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { LikeSignalParams } from "@workspace/api-zod";
+import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
 
 const router: IRouter = Router();
 
@@ -42,6 +43,8 @@ router.get("/signals", async (req, res) => {
       traderHandle: trader.handle,
       traderRepScore: Number(trader.repScore),
       traderTier: trader.tier,
+      traderSignalAccuracy: Number(trader.signalAccuracy),
+      traderStreakDays: trader.streakDays,
       asset: signal.asset,
       side: signal.side,
       entryPrice: signal.entryPrice,
@@ -76,6 +79,34 @@ router.post("/signals", async (req, res) => {
     status: status ?? "open",
   }).returning();
   res.status(201).json(signal);
+});
+
+router.post("/signals/:signalId/resolve", async (req, res) => {
+  const signalId = Number(req.params.signalId);
+  const { outcome } = req.body;
+
+  if (outcome !== "hit" && outcome !== "stopped") {
+    res.status(400).json({ error: "outcome must be 'hit' or 'stopped'" });
+    return;
+  }
+
+  const [signal] = await db.select().from(signalsTable).where(eq(signalsTable.id, signalId));
+  if (!signal) {
+    res.status(404).json({ error: "Signal not found" });
+    return;
+  }
+
+  await db.update(signalsTable)
+    .set({ status: outcome, isActive: false })
+    .where(eq(signalsTable.id, signalId));
+
+  const eventType = outcome === "hit" ? "signal_hit" : "signal_stopped";
+  const delta = outcome === "hit" ? 1 : -0.5;
+
+  await fireRepEvent(signal.traderId, eventType, delta, signalId, "signal");
+  await recomputeRepScore(signal.traderId);
+
+  res.json({ ok: true, status: outcome });
 });
 
 router.post("/signals/:signalId/like", async (req, res) => {

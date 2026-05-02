@@ -136,6 +136,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /traders/{traderId}/reputation:
+    get:
+      operationId: getTraderReputation
+      tags: [traders]
+      summary: Get a trader's multi-dimensional reputation breakdown
+      parameters:
+        - name: traderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reputation breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReputationBreakdown"
+        "404":
+          description: Trader not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /traders/{traderId}/trades:
     get:
       operationId: getTraderTrades
@@ -209,6 +234,48 @@ paths:
                   liked:
                     type: boolean
                 required: [likes, liked]
+
+  /signals/{signalId}/resolve:
+    post:
+      operationId: resolveSignal
+      tags: [signals]
+      summary: Mark a signal as hit or stopped (fires reputation event)
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                outcome:
+                  type: string
+                  enum: [hit, stopped]
+              required: [outcome]
+      responses:
+        "200":
+          description: Signal resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  status:
+                    type: string
+                required: [ok, status]
+        "404":
+          description: Signal not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /signals:
     get:
@@ -594,10 +661,10 @@ components:
         bio:
           type: string
         repScore:
-          type: integer
+          type: number
         tier:
           type: string
-          enum: [Elite, Expert, Rising]
+          enum: [BRONZE, SILVER, GOLD, DIAMOND]
         isVerified:
           type: boolean
         followersCount:
@@ -610,6 +677,32 @@ components:
           type: string
         winRate:
           type: number
+        totalPnlUsd:
+          type: string
+        tradeCount:
+          type: integer
+        followerCount:
+          type: integer
+        signalAccuracy:
+          type: number
+        validationAccuracy:
+          type: number
+        mentorScore:
+          type: number
+        streakDays:
+          type: integer
+        streakShields:
+          type: integer
+        totalSignals:
+          type: integer
+        signalsHit:
+          type: integer
+        signalsStopped:
+          type: integer
+        totalBreakdownsGiven:
+          type: integer
+        totalBreakdownsHelpful:
+          type: integer
         avgRR:
           type: number
         maxDrawdown:
@@ -626,11 +719,6 @@ components:
         - handle
         - repScore
         - tier
-        - isVerified
-        - followersCount
-        - copiersCount
-        - signalsCount
-        - pnl30d
         - winRate
         - joinedAt
 
@@ -648,6 +736,72 @@ components:
               items:
                 type: number
           required: [recentTrades, pnlCurve]
+
+    ReputationBreakdown:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        username:
+          type: string
+        repScore:
+          type: number
+        tier:
+          type: string
+        winRate:
+          type: number
+        signalAccuracy:
+          type: number
+        validationAccuracy:
+          type: number
+        mentorScore:
+          type: number
+        streakDays:
+          type: integer
+        streakShields:
+          type: integer
+        totalSignals:
+          type: integer
+        signalsHit:
+          type: integer
+        signalsStopped:
+          type: integer
+        totalBreakdownsGiven:
+          type: integer
+        totalBreakdownsHelpful:
+          type: integer
+        recentEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReputationEvent"
+      required:
+        - traderId
+        - username
+        - repScore
+        - tier
+        - winRate
+        - signalAccuracy
+        - validationAccuracy
+        - mentorScore
+        - streakDays
+        - streakShields
+
+    ReputationEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventType:
+          type: string
+        delta:
+          type: number
+        sourceType:
+          type: string
+        meta:
+          type: string
+        createdAt:
+          type: string
+      required: [id, eventType, delta, createdAt]
 
     CreateTraderBody:
       type: object
@@ -793,7 +947,7 @@ components:
         traderHandle:
           type: string
         traderRepScore:
-          type: integer
+          type: number
         traderTier:
           type: string
         asset:
@@ -801,28 +955,22 @@ components:
         side:
           type: string
           enum: [LONG, SHORT]
-        entryZone:
+        entryPrice:
           type: string
-        target:
+        targetPrice:
           type: string
         stopLoss:
           type: string
-        rrRatio:
-          type: string
         confidence:
           type: integer
-        caption:
+        reasoning:
           type: string
-        tags:
-          type: array
-          items:
-            type: string
-        likes:
+        status:
+          type: string
+        likeCount:
           type: integer
-        followers:
-          type: integer
-        comments:
-          type: integer
+        isActive:
+          type: boolean
         createdAt:
           type: string
       required:
@@ -834,12 +982,15 @@ components:
         - traderTier
         - asset
         - side
-        - entryZone
-        - target
+        - entryPrice
+        - targetPrice
         - stopLoss
-        - rrRatio
         - confidence
-        - caption
+        - reasoning
+        - status
+        - likeCount
+        - isActive
+        - createdAt
 
     SignalFull:
       type: object
@@ -1095,10 +1246,27 @@ components:
           enum: [up, down, neutral]
       required: [label, value, note, direction]
 
+    TopTrader:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        tier:
+          type: string
+        totalPnlUsd:
+          type: string
+      required: [id, username, tier, totalPnlUsd]
+
     AnalyticsSummary:
       type: object
       properties:
         crowdPositions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PairAnalytics"
+        pairAnalytics:
           type: array
           items:
             $ref: "#/components/schemas/PairAnalytics"
@@ -1114,6 +1282,22 @@ components:
           type: number
         activeTraders:
           type: integer
+        totalTraders:
+          type: integer
+        avgRepScore:
+          type: number
+        avgWinRate:
+          type: number
+        totalTrades:
+          type: integer
+        totalVolume:
+          type: string
+        totalPnl:
+          type: string
+        topTraders:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopTrader"
         macroEvents:
           type: array
           items:

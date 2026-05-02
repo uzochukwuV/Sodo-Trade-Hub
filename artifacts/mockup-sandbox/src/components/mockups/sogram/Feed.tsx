@@ -141,7 +141,7 @@ function WinPost({ post }: { post: typeof posts[0] }) {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ color: C.white, fontWeight: 900, fontSize: 17, fontFamily: FONT_DISPLAY, letterSpacing: 0.5 }}>{post.asset}</span>
                 <Tag label={post.side} accent={isLong} />
-                <Tag label={post.leverage} />
+                <Tag label={post.leverage ?? ""} />
                 <Tag label="ON-CHAIN" />
               </div>
               <div style={{ textAlign: "right" }}>

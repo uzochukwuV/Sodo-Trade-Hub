@@ -6,8 +6,7 @@ import {
   useLikeBreakdown,
   useResolveBreakdown,
 } from "@workspace/api-client-react";
-import type { PainRoom, BreakdownFull } from "@workspace/api-client-react/src/generated/api.schemas";
-import type { AddBreakdownBody } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { PainRoom, BreakdownFull, AddBreakdownBody } from "@workspace/api-client-react";
 
 const TIER_COLORS: Record<string, string> = {
   DIAMOND: "#00D4FF",
@@ -158,7 +157,7 @@ function BreakdownCard({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button
-          onClick={() => { if (!liked) { setLiked(true); setLocalLikes(l => l + 1); onLike(); } }}
+          onClick={() => { if (!liked) { setLiked(true); setLocalLikes((l: number) => l + 1); onLike(); } }}
           style={{
             background: "none", border: "none", cursor: liked ? "default" : "pointer",
             display: "flex", alignItems: "center", gap: 5,
@@ -304,7 +303,7 @@ function PainRoomCard({ pr, onRefetch }: { pr: PainRoom; onRefetch: () => void }
   async function handleLike() {
     if (liked) return;
     setLiked(true);
-    setLocalLikes(l => l + 1);
+    setLocalLikes((l: number) => l + 1);
     await likePainRoom({ painRoomId: pr.id });
   }
 
@@ -436,7 +435,7 @@ function PainRoomCard({ pr, onRefetch }: { pr: PainRoom; onRefetch: () => void }
               No breakdowns yet. Be the first to help.
             </div>
           ) : (
-            pr.breakdowns.map(bd => (
+            pr.breakdowns.map((bd: BreakdownFull) => (
               <BreakdownCard
                 key={bd.id}
                 bd={bd}

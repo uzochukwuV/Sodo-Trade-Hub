@@ -48,7 +48,10 @@ import type {
   ListTradersParams,
   MarketPrices,
   PainRoom,
+  ReputationBreakdown,
   ResolveBreakdown200,
+  ResolveSignal200,
+  ResolveSignalBody,
   SignalFull,
   Trade,
   Trader,
@@ -492,6 +495,95 @@ export function useGetTrader<
 }
 
 /**
+ * @summary Get a trader's multi-dimensional reputation breakdown
+ */
+export const getGetTraderReputationUrl = (traderId: number) => {
+  return `/api/traders/${traderId}/reputation`;
+};
+
+export const getTraderReputation = async (
+  traderId: number,
+  options?: RequestInit,
+): Promise<ReputationBreakdown> => {
+  return customFetch<ReputationBreakdown>(getGetTraderReputationUrl(traderId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTraderReputationQueryKey = (traderId: number) => {
+  return [`/api/traders/${traderId}/reputation`] as const;
+};
+
+export const getGetTraderReputationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTraderReputation>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  traderId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTraderReputation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTraderReputationQueryKey(traderId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTraderReputation>>
+  > = ({ signal }) =>
+    getTraderReputation(traderId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!traderId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTraderReputation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTraderReputationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTraderReputation>>
+>;
+export type GetTraderReputationQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a trader's multi-dimensional reputation breakdown
+ */
+
+export function useGetTraderReputation<
+  TData = Awaited<ReturnType<typeof getTraderReputation>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  traderId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTraderReputation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTraderReputationQueryOptions(traderId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get a trader's trade history
  */
 export const getGetTraderTradesUrl = (
@@ -778,6 +870,93 @@ export const useLikeTrade = <
   TContext
 > => {
   return useMutation(getLikeTradeMutationOptions(options));
+};
+
+/**
+ * @summary Mark a signal as hit or stopped (fires reputation event)
+ */
+export const getResolveSignalUrl = (signalId: number) => {
+  return `/api/signals/${signalId}/resolve`;
+};
+
+export const resolveSignal = async (
+  signalId: number,
+  resolveSignalBody: ResolveSignalBody,
+  options?: RequestInit,
+): Promise<ResolveSignal200> => {
+  return customFetch<ResolveSignal200>(getResolveSignalUrl(signalId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resolveSignalBody),
+  });
+};
+
+export const getResolveSignalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveSignal>>,
+    TError,
+    { signalId: number; data: BodyType<ResolveSignalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resolveSignal>>,
+  TError,
+  { signalId: number; data: BodyType<ResolveSignalBody> },
+  TContext
+> => {
+  const mutationKey = ["resolveSignal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resolveSignal>>,
+    { signalId: number; data: BodyType<ResolveSignalBody> }
+  > = (props) => {
+    const { signalId, data } = props ?? {};
+
+    return resolveSignal(signalId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResolveSignalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolveSignal>>
+>;
+export type ResolveSignalMutationBody = BodyType<ResolveSignalBody>;
+export type ResolveSignalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Mark a signal as hit or stopped (fires reputation event)
+ */
+export const useResolveSignal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveSignal>>,
+    TError,
+    { signalId: number; data: BodyType<ResolveSignalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resolveSignal>>,
+  TError,
+  { signalId: number; data: BodyType<ResolveSignalBody> },
+  TContext
+> => {
+  return useMutation(getResolveSignalMutationOptions(options));
 };
 
 /**
