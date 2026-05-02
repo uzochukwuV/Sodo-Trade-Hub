@@ -348,6 +348,154 @@ paths:
               schema:
                 $ref: "#/components/schemas/CopyConfig"
 
+  /pain-rooms:
+    get:
+      operationId: listPainRooms
+      tags: [pain-rooms]
+      summary: List pain room posts (verified losses with community breakdowns)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Pain rooms list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  painRooms:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PainRoom"
+                  total:
+                    type: integer
+                required: [painRooms, total]
+    post:
+      operationId: createPainRoom
+      tags: [pain-rooms]
+      summary: Post a verified loss to the pain room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePainRoomBody"
+      responses:
+        "201":
+          description: Pain room post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PainRoom"
+
+  /pain-rooms/{painRoomId}/breakdowns:
+    post:
+      operationId: addBreakdown
+      tags: [pain-rooms]
+      summary: Add a structured breakdown to a pain room post
+      parameters:
+        - name: painRoomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddBreakdownBody"
+      responses:
+        "201":
+          description: Breakdown added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakdownFull"
+
+  /pain-rooms/{painRoomId}/resolve/{breakdownId}:
+    post:
+      operationId: resolveBreakdown
+      tags: [pain-rooms]
+      summary: Mark a breakdown as the one that helped
+      parameters:
+        - name: painRoomId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: breakdownId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /pain-rooms/{painRoomId}/like:
+    post:
+      operationId: likePainRoom
+      tags: [pain-rooms]
+      summary: Like a pain room post
+      parameters:
+        - name: painRoomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Liked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  likeCount:
+                    type: integer
+                required: [likeCount]
+
+  /breakdowns/{breakdownId}/like:
+    post:
+      operationId: likeBreakdown
+      tags: [pain-rooms]
+      summary: Like a breakdown response
+      parameters:
+        - name: breakdownId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Liked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  likeCount:
+                    type: integer
+                required: [likeCount]
+
   /analytics/summary:
     get:
       operationId: getAnalyticsSummary
@@ -1072,3 +1220,177 @@ components:
         - winRate
         - copiersCount
         - totalTrades
+
+    BreakdownFull:
+      type: object
+      properties:
+        id:
+          type: integer
+        painRoomId:
+          type: integer
+        responderId:
+          type: integer
+        responderUsername:
+          type: string
+        responderHandle:
+          type: string
+        responderRepScore:
+          type: integer
+        responderTier:
+          type: string
+        whatFailed:
+          type: string
+          enum: [entry_timing, thesis, sizing, risk_management, exit_timing, leverage]
+        dataShowed:
+          type: string
+        doDifferently:
+          type: string
+        likeCount:
+          type: integer
+        isMarkedHelpful:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - painRoomId
+        - responderId
+        - responderUsername
+        - responderHandle
+        - responderRepScore
+        - responderTier
+        - whatFailed
+        - dataShowed
+        - doDifferently
+        - likeCount
+        - isMarkedHelpful
+        - createdAt
+
+    PainRoom:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: integer
+        traderTier:
+          type: string
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: string
+        exitPrice:
+          type: string
+        pnlUsd:
+          type: string
+        pnlPct:
+          type: string
+        leverage:
+          type: integer
+        positionSize:
+          type: string
+        comment:
+          type: string
+          nullable: true
+        isAnonymous:
+          type: boolean
+        isResolved:
+          type: boolean
+        resolvedBreakdownId:
+          type: integer
+          nullable: true
+        likeCount:
+          type: integer
+        breakdownCount:
+          type: integer
+        breakdowns:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreakdownFull"
+        createdAt:
+          type: string
+      required:
+        - id
+        - traderId
+        - traderUsername
+        - traderHandle
+        - traderRepScore
+        - traderTier
+        - asset
+        - side
+        - entryPrice
+        - exitPrice
+        - pnlUsd
+        - pnlPct
+        - leverage
+        - positionSize
+        - isAnonymous
+        - isResolved
+        - likeCount
+        - breakdownCount
+        - breakdowns
+        - createdAt
+
+    CreatePainRoomBody:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: string
+        exitPrice:
+          type: string
+        pnlUsd:
+          type: string
+        pnlPct:
+          type: string
+        leverage:
+          type: integer
+        positionSize:
+          type: string
+        comment:
+          type: string
+        isAnonymous:
+          type: boolean
+      required:
+        - traderId
+        - asset
+        - side
+        - entryPrice
+        - exitPrice
+        - pnlUsd
+        - pnlPct
+        - leverage
+        - positionSize
+
+    AddBreakdownBody:
+      type: object
+      properties:
+        responderId:
+          type: integer
+        whatFailed:
+          type: string
+          enum: [entry_timing, thesis, sizing, risk_management, exit_timing, leverage]
+        dataShowed:
+          type: string
+        doDifferently:
+          type: string
+      required:
+        - responderId
+        - whatFailed
+        - dataShowed
+        - doDifferently

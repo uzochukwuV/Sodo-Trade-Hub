@@ -7,6 +7,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { label: "FEED", path: "/" },
     { label: "SIGNALS", path: "/signals" },
+    { label: "PAIN ROOM", path: "/pain-room", hot: true },
     { label: "COPY", path: "/copy" },
     { label: "ANALYTICS", path: "/analytics", pro: true },
     { label: "TRADERS", path: "/traders" },
@@ -41,6 +42,11 @@ export function Layout({ children }: { children: ReactNode }) {
                 {item.pro && (
                   <span className="bg-accent text-background text-[8px] px-1.5 py-0.5 font-black tracking-wider">
                     PRO
+                  </span>
+                )}
+                {(item as any).hot && (
+                  <span className="text-[8px] px-1.5 py-0.5 font-black tracking-wider" style={{ background: "#FF3B3B22", color: "#FF3B3B", border: "1px solid #FF3B3B44" }}>
+                    NEW
                   </span>
                 )}
               </div>

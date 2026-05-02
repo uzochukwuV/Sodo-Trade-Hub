@@ -6,6 +6,7 @@ import tradesRouter from "./trades";
 import signalsRouter from "./signals";
 import copyRouter from "./copy";
 import analyticsRouter from "./analytics";
+import painRoomsRouter from "./pain_rooms";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(tradesRouter);
 router.use(signalsRouter);
 router.use(copyRouter);
 router.use(analyticsRouter);
+router.use(painRoomsRouter);
 
 export default router;

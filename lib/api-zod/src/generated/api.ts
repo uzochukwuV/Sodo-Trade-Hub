@@ -400,6 +400,142 @@ export const UpsertCopyConfigResponse = zod.object({
 });
 
 /**
+ * @summary List pain room posts (verified losses with community breakdowns)
+ */
+export const listPainRoomsQueryLimitDefault = 20;
+export const listPainRoomsQueryOffsetDefault = 0;
+
+export const ListPainRoomsQueryParams = zod.object({
+  limit: zod.coerce.number().default(listPainRoomsQueryLimitDefault),
+  offset: zod.coerce.number().default(listPainRoomsQueryOffsetDefault),
+});
+
+export const ListPainRoomsResponse = zod.object({
+  painRooms: zod.array(
+    zod.object({
+      id: zod.number(),
+      traderId: zod.number(),
+      traderUsername: zod.string(),
+      traderHandle: zod.string(),
+      traderRepScore: zod.number(),
+      traderTier: zod.string(),
+      asset: zod.string(),
+      side: zod.enum(["LONG", "SHORT"]),
+      entryPrice: zod.string(),
+      exitPrice: zod.string(),
+      pnlUsd: zod.string(),
+      pnlPct: zod.string(),
+      leverage: zod.number(),
+      positionSize: zod.string(),
+      comment: zod.string().nullish(),
+      isAnonymous: zod.boolean(),
+      isResolved: zod.boolean(),
+      resolvedBreakdownId: zod.number().nullish(),
+      likeCount: zod.number(),
+      breakdownCount: zod.number(),
+      breakdowns: zod.array(
+        zod.object({
+          id: zod.number(),
+          painRoomId: zod.number(),
+          responderId: zod.number(),
+          responderUsername: zod.string(),
+          responderHandle: zod.string(),
+          responderRepScore: zod.number(),
+          responderTier: zod.string(),
+          whatFailed: zod.enum([
+            "entry_timing",
+            "thesis",
+            "sizing",
+            "risk_management",
+            "exit_timing",
+            "leverage",
+          ]),
+          dataShowed: zod.string(),
+          doDifferently: zod.string(),
+          likeCount: zod.number(),
+          isMarkedHelpful: zod.boolean(),
+          createdAt: zod.string(),
+        }),
+      ),
+      createdAt: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Post a verified loss to the pain room
+ */
+export const CreatePainRoomBody = zod.object({
+  traderId: zod.number(),
+  asset: zod.string(),
+  side: zod.enum(["LONG", "SHORT"]),
+  entryPrice: zod.string(),
+  exitPrice: zod.string(),
+  pnlUsd: zod.string(),
+  pnlPct: zod.string(),
+  leverage: zod.number(),
+  positionSize: zod.string(),
+  comment: zod.string().optional(),
+  isAnonymous: zod.boolean().optional(),
+});
+
+/**
+ * @summary Add a structured breakdown to a pain room post
+ */
+export const AddBreakdownParams = zod.object({
+  painRoomId: zod.coerce.number(),
+});
+
+export const AddBreakdownBody = zod.object({
+  responderId: zod.number(),
+  whatFailed: zod.enum([
+    "entry_timing",
+    "thesis",
+    "sizing",
+    "risk_management",
+    "exit_timing",
+    "leverage",
+  ]),
+  dataShowed: zod.string(),
+  doDifferently: zod.string(),
+});
+
+/**
+ * @summary Mark a breakdown as the one that helped
+ */
+export const ResolveBreakdownParams = zod.object({
+  painRoomId: zod.coerce.number(),
+  breakdownId: zod.coerce.number(),
+});
+
+export const ResolveBreakdownResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Like a pain room post
+ */
+export const LikePainRoomParams = zod.object({
+  painRoomId: zod.coerce.number(),
+});
+
+export const LikePainRoomResponse = zod.object({
+  likeCount: zod.number(),
+});
+
+/**
+ * @summary Like a breakdown response
+ */
+export const LikeBreakdownParams = zod.object({
+  breakdownId: zod.coerce.number(),
+});
+
+export const LikeBreakdownResponse = zod.object({
+  likeCount: zod.number(),
+});
+
+/**
  * @summary Get crowd analytics summary (crowd positions, leverage dist)
  */
 export const GetAnalyticsSummaryResponse = zod.object({

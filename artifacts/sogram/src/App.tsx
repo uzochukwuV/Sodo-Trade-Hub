@@ -11,6 +11,7 @@ import Traders from "@/pages/Traders";
 import TraderProfile from "@/pages/TraderProfile";
 import Analytics from "@/pages/Analytics";
 import CopyTrading from "@/pages/CopyTrading";
+import PainRoom from "@/pages/PainRoom";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ function Router() {
         <Route path="/traders/:id" component={TraderProfile} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/copy" component={CopyTrading} />
+        <Route path="/pain-room" component={PainRoom} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

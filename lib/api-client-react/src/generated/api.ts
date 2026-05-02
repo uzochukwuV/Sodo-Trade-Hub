@@ -17,8 +17,11 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AddBreakdownBody,
   AnalyticsSummary,
+  BreakdownFull,
   CopyConfig,
+  CreatePainRoomBody,
   CreateSignalBody,
   CreateTradeBody,
   CreateTraderBody,
@@ -31,15 +34,21 @@ import type {
   GetTraderTradesParams,
   GetWhaleActivity200,
   HealthStatus,
+  LikeBreakdown200,
+  LikePainRoom200,
   LikeSignal200,
   LikeTrade200,
   ListCopyConfigs200,
   ListCopyConfigsParams,
+  ListPainRooms200,
+  ListPainRoomsParams,
   ListSignals200,
   ListSignalsParams,
   ListTraders200,
   ListTradersParams,
   MarketPrices,
+  PainRoom,
+  ResolveBreakdown200,
   SignalFull,
   Trade,
   Trader,
@@ -1213,6 +1222,532 @@ export const useUpsertCopyConfig = <
   TContext
 > => {
   return useMutation(getUpsertCopyConfigMutationOptions(options));
+};
+
+/**
+ * @summary List pain room posts (verified losses with community breakdowns)
+ */
+export const getListPainRoomsUrl = (params?: ListPainRoomsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/pain-rooms?${stringifiedParams}`
+    : `/api/pain-rooms`;
+};
+
+export const listPainRooms = async (
+  params?: ListPainRoomsParams,
+  options?: RequestInit,
+): Promise<ListPainRooms200> => {
+  return customFetch<ListPainRooms200>(getListPainRoomsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPainRoomsQueryKey = (params?: ListPainRoomsParams) => {
+  return [`/api/pain-rooms`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPainRoomsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPainRooms>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPainRoomsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPainRooms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPainRoomsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPainRooms>>> = ({
+    signal,
+  }) => listPainRooms(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPainRooms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPainRoomsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPainRooms>>
+>;
+export type ListPainRoomsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List pain room posts (verified losses with community breakdowns)
+ */
+
+export function useListPainRooms<
+  TData = Awaited<ReturnType<typeof listPainRooms>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPainRoomsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPainRooms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPainRoomsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Post a verified loss to the pain room
+ */
+export const getCreatePainRoomUrl = () => {
+  return `/api/pain-rooms`;
+};
+
+export const createPainRoom = async (
+  createPainRoomBody: CreatePainRoomBody,
+  options?: RequestInit,
+): Promise<PainRoom> => {
+  return customFetch<PainRoom>(getCreatePainRoomUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPainRoomBody),
+  });
+};
+
+export const getCreatePainRoomMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPainRoom>>,
+    TError,
+    { data: BodyType<CreatePainRoomBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPainRoom>>,
+  TError,
+  { data: BodyType<CreatePainRoomBody> },
+  TContext
+> => {
+  const mutationKey = ["createPainRoom"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPainRoom>>,
+    { data: BodyType<CreatePainRoomBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPainRoom(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePainRoomMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPainRoom>>
+>;
+export type CreatePainRoomMutationBody = BodyType<CreatePainRoomBody>;
+export type CreatePainRoomMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Post a verified loss to the pain room
+ */
+export const useCreatePainRoom = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPainRoom>>,
+    TError,
+    { data: BodyType<CreatePainRoomBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPainRoom>>,
+  TError,
+  { data: BodyType<CreatePainRoomBody> },
+  TContext
+> => {
+  return useMutation(getCreatePainRoomMutationOptions(options));
+};
+
+/**
+ * @summary Add a structured breakdown to a pain room post
+ */
+export const getAddBreakdownUrl = (painRoomId: number) => {
+  return `/api/pain-rooms/${painRoomId}/breakdowns`;
+};
+
+export const addBreakdown = async (
+  painRoomId: number,
+  addBreakdownBody: AddBreakdownBody,
+  options?: RequestInit,
+): Promise<BreakdownFull> => {
+  return customFetch<BreakdownFull>(getAddBreakdownUrl(painRoomId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addBreakdownBody),
+  });
+};
+
+export const getAddBreakdownMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addBreakdown>>,
+    TError,
+    { painRoomId: number; data: BodyType<AddBreakdownBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addBreakdown>>,
+  TError,
+  { painRoomId: number; data: BodyType<AddBreakdownBody> },
+  TContext
+> => {
+  const mutationKey = ["addBreakdown"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addBreakdown>>,
+    { painRoomId: number; data: BodyType<AddBreakdownBody> }
+  > = (props) => {
+    const { painRoomId, data } = props ?? {};
+
+    return addBreakdown(painRoomId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddBreakdownMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addBreakdown>>
+>;
+export type AddBreakdownMutationBody = BodyType<AddBreakdownBody>;
+export type AddBreakdownMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a structured breakdown to a pain room post
+ */
+export const useAddBreakdown = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addBreakdown>>,
+    TError,
+    { painRoomId: number; data: BodyType<AddBreakdownBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addBreakdown>>,
+  TError,
+  { painRoomId: number; data: BodyType<AddBreakdownBody> },
+  TContext
+> => {
+  return useMutation(getAddBreakdownMutationOptions(options));
+};
+
+/**
+ * @summary Mark a breakdown as the one that helped
+ */
+export const getResolveBreakdownUrl = (
+  painRoomId: number,
+  breakdownId: number,
+) => {
+  return `/api/pain-rooms/${painRoomId}/resolve/${breakdownId}`;
+};
+
+export const resolveBreakdown = async (
+  painRoomId: number,
+  breakdownId: number,
+  options?: RequestInit,
+): Promise<ResolveBreakdown200> => {
+  return customFetch<ResolveBreakdown200>(
+    getResolveBreakdownUrl(painRoomId, breakdownId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getResolveBreakdownMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveBreakdown>>,
+    TError,
+    { painRoomId: number; breakdownId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resolveBreakdown>>,
+  TError,
+  { painRoomId: number; breakdownId: number },
+  TContext
+> => {
+  const mutationKey = ["resolveBreakdown"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resolveBreakdown>>,
+    { painRoomId: number; breakdownId: number }
+  > = (props) => {
+    const { painRoomId, breakdownId } = props ?? {};
+
+    return resolveBreakdown(painRoomId, breakdownId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResolveBreakdownMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolveBreakdown>>
+>;
+
+export type ResolveBreakdownMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark a breakdown as the one that helped
+ */
+export const useResolveBreakdown = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveBreakdown>>,
+    TError,
+    { painRoomId: number; breakdownId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resolveBreakdown>>,
+  TError,
+  { painRoomId: number; breakdownId: number },
+  TContext
+> => {
+  return useMutation(getResolveBreakdownMutationOptions(options));
+};
+
+/**
+ * @summary Like a pain room post
+ */
+export const getLikePainRoomUrl = (painRoomId: number) => {
+  return `/api/pain-rooms/${painRoomId}/like`;
+};
+
+export const likePainRoom = async (
+  painRoomId: number,
+  options?: RequestInit,
+): Promise<LikePainRoom200> => {
+  return customFetch<LikePainRoom200>(getLikePainRoomUrl(painRoomId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getLikePainRoomMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof likePainRoom>>,
+    TError,
+    { painRoomId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof likePainRoom>>,
+  TError,
+  { painRoomId: number },
+  TContext
+> => {
+  const mutationKey = ["likePainRoom"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof likePainRoom>>,
+    { painRoomId: number }
+  > = (props) => {
+    const { painRoomId } = props ?? {};
+
+    return likePainRoom(painRoomId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LikePainRoomMutationResult = NonNullable<
+  Awaited<ReturnType<typeof likePainRoom>>
+>;
+
+export type LikePainRoomMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Like a pain room post
+ */
+export const useLikePainRoom = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof likePainRoom>>,
+    TError,
+    { painRoomId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof likePainRoom>>,
+  TError,
+  { painRoomId: number },
+  TContext
+> => {
+  return useMutation(getLikePainRoomMutationOptions(options));
+};
+
+/**
+ * @summary Like a breakdown response
+ */
+export const getLikeBreakdownUrl = (breakdownId: number) => {
+  return `/api/breakdowns/${breakdownId}/like`;
+};
+
+export const likeBreakdown = async (
+  breakdownId: number,
+  options?: RequestInit,
+): Promise<LikeBreakdown200> => {
+  return customFetch<LikeBreakdown200>(getLikeBreakdownUrl(breakdownId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getLikeBreakdownMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof likeBreakdown>>,
+    TError,
+    { breakdownId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof likeBreakdown>>,
+  TError,
+  { breakdownId: number },
+  TContext
+> => {
+  const mutationKey = ["likeBreakdown"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof likeBreakdown>>,
+    { breakdownId: number }
+  > = (props) => {
+    const { breakdownId } = props ?? {};
+
+    return likeBreakdown(breakdownId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LikeBreakdownMutationResult = NonNullable<
+  Awaited<ReturnType<typeof likeBreakdown>>
+>;
+
+export type LikeBreakdownMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Like a breakdown response
+ */
+export const useLikeBreakdown = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof likeBreakdown>>,
+    TError,
+    { breakdownId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof likeBreakdown>>,
+  TError,
+  { breakdownId: number },
+  TContext
+> => {
+  return useMutation(getLikeBreakdownMutationOptions(options));
 };
 
 /**

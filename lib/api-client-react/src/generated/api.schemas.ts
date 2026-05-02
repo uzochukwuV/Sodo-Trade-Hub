@@ -333,6 +333,107 @@ export interface LeaderboardEntry {
   totalTrades: number;
 }
 
+export type BreakdownFullWhatFailed =
+  (typeof BreakdownFullWhatFailed)[keyof typeof BreakdownFullWhatFailed];
+
+export const BreakdownFullWhatFailed = {
+  entry_timing: "entry_timing",
+  thesis: "thesis",
+  sizing: "sizing",
+  risk_management: "risk_management",
+  exit_timing: "exit_timing",
+  leverage: "leverage",
+} as const;
+
+export interface BreakdownFull {
+  id: number;
+  painRoomId: number;
+  responderId: number;
+  responderUsername: string;
+  responderHandle: string;
+  responderRepScore: number;
+  responderTier: string;
+  whatFailed: BreakdownFullWhatFailed;
+  dataShowed: string;
+  doDifferently: string;
+  likeCount: number;
+  isMarkedHelpful: boolean;
+  createdAt: string;
+}
+
+export type PainRoomSide = (typeof PainRoomSide)[keyof typeof PainRoomSide];
+
+export const PainRoomSide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export interface PainRoom {
+  id: number;
+  traderId: number;
+  traderUsername: string;
+  traderHandle: string;
+  traderRepScore: number;
+  traderTier: string;
+  asset: string;
+  side: PainRoomSide;
+  entryPrice: string;
+  exitPrice: string;
+  pnlUsd: string;
+  pnlPct: string;
+  leverage: number;
+  positionSize: string;
+  comment?: string | null;
+  isAnonymous: boolean;
+  isResolved: boolean;
+  resolvedBreakdownId?: number | null;
+  likeCount: number;
+  breakdownCount: number;
+  breakdowns: BreakdownFull[];
+  createdAt: string;
+}
+
+export type CreatePainRoomBodySide =
+  (typeof CreatePainRoomBodySide)[keyof typeof CreatePainRoomBodySide];
+
+export const CreatePainRoomBodySide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export interface CreatePainRoomBody {
+  traderId: number;
+  asset: string;
+  side: CreatePainRoomBodySide;
+  entryPrice: string;
+  exitPrice: string;
+  pnlUsd: string;
+  pnlPct: string;
+  leverage: number;
+  positionSize: string;
+  comment?: string;
+  isAnonymous?: boolean;
+}
+
+export type AddBreakdownBodyWhatFailed =
+  (typeof AddBreakdownBodyWhatFailed)[keyof typeof AddBreakdownBodyWhatFailed];
+
+export const AddBreakdownBodyWhatFailed = {
+  entry_timing: "entry_timing",
+  thesis: "thesis",
+  sizing: "sizing",
+  risk_management: "risk_management",
+  exit_timing: "exit_timing",
+  leverage: "leverage",
+} as const;
+
+export interface AddBreakdownBody {
+  responderId: number;
+  whatFailed: AddBreakdownBodyWhatFailed;
+  dataShowed: string;
+  doDifferently: string;
+}
+
 export type GetFeedParams = {
   filter?: GetFeedFilter;
   limit?: number;
@@ -411,6 +512,28 @@ export type ListCopyConfigsParams = {
 
 export type ListCopyConfigs200 = {
   configs: CopyConfig[];
+};
+
+export type ListPainRoomsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListPainRooms200 = {
+  painRooms: PainRoom[];
+  total: number;
+};
+
+export type ResolveBreakdown200 = {
+  ok: boolean;
+};
+
+export type LikePainRoom200 = {
+  likeCount: number;
+};
+
+export type LikeBreakdown200 = {
+  likeCount: number;
 };
 
 export type GetWhaleActivity200 = {
