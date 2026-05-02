@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Sogram"
+version = "1.0.0"
+id = "artifacts/sogram"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23860
+
+[services.development]
+run = "pnpm --filter @workspace/sogram run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sogram", "run", "build" ]
+publicDir = "artifacts/sogram/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23860"
+BASE_PATH = "/"

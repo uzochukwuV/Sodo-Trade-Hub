@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Sogram social trading platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: feed
+    description: Social feed operations
+  - name: traders
+    description: Trader profile operations
+  - name: trades
+    description: Trade post operations
+  - name: signals
+    description: Signal post operations
+  - name: copy
+    description: Copy trading operations
+  - name: analytics
+    description: Analytics and market data
+  - name: leaderboard
+    description: Leaderboard operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,334 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /feed:
+    get:
+      operationId: getFeed
+      tags: [feed]
+      summary: Get social feed (trades + signals)
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, wins, signals]
+            default: all
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedResponse"
+
+  /traders:
+    get:
+      operationId: listTraders
+      tags: [traders]
+      summary: List all traders
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of traders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Trader"
+                required: [traders]
+    post:
+      operationId: createTrader
+      tags: [traders]
+      summary: Create or update a trader profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTraderBody"
+      responses:
+        "201":
+          description: Trader created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trader"
+
+  /traders/{traderId}:
+    get:
+      operationId: getTrader
+      tags: [traders]
+      summary: Get a trader profile
+      parameters:
+        - name: traderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trader profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraderProfile"
+        "404":
+          description: Trader not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /traders/{traderId}/trades:
+    get:
+      operationId: getTraderTrades
+      tags: [traders]
+      summary: Get a trader's trade history
+      parameters:
+        - name: traderId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Trade history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trades:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Trade"
+                required: [trades]
+
+  /trades:
+    post:
+      operationId: createTrade
+      tags: [trades]
+      summary: Post a verified trade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTradeBody"
+      responses:
+        "201":
+          description: Trade posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+
+  /trades/{tradeId}/like:
+    post:
+      operationId: likeTrade
+      tags: [trades]
+      summary: Like a trade post
+      parameters:
+        - name: tradeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Like toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  likes:
+                    type: integer
+                  liked:
+                    type: boolean
+                required: [likes, liked]
+
+  /signals:
+    post:
+      operationId: createSignal
+      tags: [signals]
+      summary: Post a trading signal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSignalBody"
+      responses:
+        "201":
+          description: Signal posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+
+  /signals/{signalId}/like:
+    post:
+      operationId: likeSignal
+      tags: [signals]
+      summary: Like a signal post
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Like toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  likes:
+                    type: integer
+                  liked:
+                    type: boolean
+                required: [likes, liked]
+
+  /copy:
+    get:
+      operationId: listCopyConfigs
+      tags: [copy]
+      summary: Get all copy trading configurations for a copier
+      parameters:
+        - name: copierId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Copy configs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CopyConfig"
+                required: [configs]
+    post:
+      operationId: upsertCopyConfig
+      tags: [copy]
+      summary: Create or update a copy trading configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCopyConfigBody"
+      responses:
+        "200":
+          description: Config saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CopyConfig"
+
+  /analytics/summary:
+    get:
+      operationId: getAnalyticsSummary
+      tags: [analytics]
+      summary: Get crowd analytics summary (crowd positions, leverage dist)
+      responses:
+        "200":
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+
+  /analytics/market:
+    get:
+      operationId: getMarketPrices
+      tags: [analytics]
+      summary: Get live market prices from Sodex testnet
+      responses:
+        "200":
+          description: Market prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPrices"
+
+  /analytics/whales:
+    get:
+      operationId: getWhaleActivity
+      tags: [analytics]
+      summary: Get recent large positions (whale activity)
+      responses:
+        "200":
+          description: Whale activity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  whales:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WhalePosition"
+                required: [whales]
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Get top traders ranked by 30d PNL
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaderboardEntry"
+                required: [traders]
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +373,593 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    Trader:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        handle:
+          type: string
+        bio:
+          type: string
+        repScore:
+          type: integer
+        tier:
+          type: string
+          enum: [Elite, Expert, Rising]
+        isVerified:
+          type: boolean
+        followersCount:
+          type: integer
+        copiersCount:
+          type: integer
+        signalsCount:
+          type: integer
+        pnl30d:
+          type: string
+        winRate:
+          type: number
+        avgRR:
+          type: number
+        maxDrawdown:
+          type: number
+        avgHoldDays:
+          type: number
+        sharpeRatio:
+          type: number
+        joinedAt:
+          type: string
+      required:
+        - id
+        - username
+        - handle
+        - repScore
+        - tier
+        - isVerified
+        - followersCount
+        - copiersCount
+        - signalsCount
+        - pnl30d
+        - winRate
+        - joinedAt
+
+    TraderProfile:
+      allOf:
+        - $ref: "#/components/schemas/Trader"
+        - type: object
+          properties:
+            recentTrades:
+              type: array
+              items:
+                $ref: "#/components/schemas/Trade"
+            pnlCurve:
+              type: array
+              items:
+                type: number
+          required: [recentTrades, pnlCurve]
+
+    CreateTraderBody:
+      type: object
+      properties:
+        username:
+          type: string
+        handle:
+          type: string
+        bio:
+          type: string
+        walletAddress:
+          type: string
+      required: [username, handle]
+
+    Trade:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: integer
+        traderTier:
+          type: string
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: number
+        pnlUsd:
+          type: string
+        pnlPct:
+          type: string
+        positionSize:
+          type: string
+        leverage:
+          type: string
+        duration:
+          type: string
+        caption:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isOnChainVerified:
+          type: boolean
+        likes:
+          type: integer
+        copies:
+          type: integer
+        comments:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - traderId
+        - traderUsername
+        - traderHandle
+        - traderRepScore
+        - traderTier
+        - asset
+        - side
+        - entryPrice
+        - exitPrice
+        - pnlUsd
+        - pnlPct
+        - positionSize
+        - leverage
+        - duration
+        - caption
+        - tags
+        - isOnChainVerified
+        - likes
+        - copies
+        - comments
+        - createdAt
+
+    CreateTradeBody:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: number
+        pnlUsd:
+          type: string
+        pnlPct:
+          type: string
+        positionSize:
+          type: string
+        leverage:
+          type: string
+        duration:
+          type: string
+        caption:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isOnChainVerified:
+          type: boolean
+      required:
+        - traderId
+        - asset
+        - side
+        - entryPrice
+        - exitPrice
+        - pnlUsd
+        - pnlPct
+        - positionSize
+        - leverage
+        - duration
+        - caption
+
+    Signal:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: integer
+        traderTier:
+          type: string
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryZone:
+          type: string
+        target:
+          type: string
+        stopLoss:
+          type: string
+        rrRatio:
+          type: string
+        confidence:
+          type: integer
+        caption:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        likes:
+          type: integer
+        followers:
+          type: integer
+        comments:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - traderId
+        - traderUsername
+        - traderHandle
+        - traderRepScore
+        - traderTier
+        - asset
+        - side
+        - entryZone
+        - target
+        - stopLoss
+        - rrRatio
+        - confidence
+        - caption
+        - tags
+        - likes
+        - followers
+        - comments
+        - createdAt
+
+    CreateSignalBody:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryZone:
+          type: string
+        target:
+          type: string
+        stopLoss:
+          type: string
+        rrRatio:
+          type: string
+        confidence:
+          type: integer
+        caption:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - traderId
+        - asset
+        - side
+        - entryZone
+        - target
+        - stopLoss
+        - rrRatio
+        - confidence
+        - caption
+
+    FeedItem:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [trade, signal]
+        trade:
+          $ref: "#/components/schemas/Trade"
+        signal:
+          $ref: "#/components/schemas/Signal"
+      required: [type]
+
+    FeedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedItem"
+        total:
+          type: integer
+      required: [items, total]
+
+    CopyConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        copierId:
+          type: integer
+        leaderId:
+          type: integer
+        leaderUsername:
+          type: string
+        leaderHandle:
+          type: string
+        leaderRepScore:
+          type: integer
+        leaderPnl30d:
+          type: string
+        leaderWinRate:
+          type: number
+        copyRatioPct:
+          type: integer
+        maxPerTradeUsd:
+          type: integer
+        stopCopyDrawdownPct:
+          type: integer
+        allowedPairs:
+          type: array
+          items:
+            type: string
+        copyPerps:
+          type: boolean
+        copySpot:
+          type: boolean
+        isActive:
+          type: boolean
+        todayPnl:
+          type: string
+        openPositions:
+          type: integer
+        deployedUsd:
+          type: integer
+      required:
+        - id
+        - copierId
+        - leaderId
+        - leaderUsername
+        - leaderHandle
+        - leaderRepScore
+        - leaderPnl30d
+        - leaderWinRate
+        - copyRatioPct
+        - maxPerTradeUsd
+        - stopCopyDrawdownPct
+        - allowedPairs
+        - copyPerps
+        - copySpot
+        - isActive
+
+    UpsertCopyConfigBody:
+      type: object
+      properties:
+        copierId:
+          type: integer
+        leaderId:
+          type: integer
+        copyRatioPct:
+          type: integer
+        maxPerTradeUsd:
+          type: integer
+        stopCopyDrawdownPct:
+          type: integer
+        allowedPairs:
+          type: array
+          items:
+            type: string
+        copyPerps:
+          type: boolean
+        copySpot:
+          type: boolean
+        isActive:
+          type: boolean
+      required:
+        - copierId
+        - leaderId
+        - copyRatioPct
+        - maxPerTradeUsd
+        - stopCopyDrawdownPct
+        - allowedPairs
+        - copyPerps
+        - copySpot
+        - isActive
+
+    PairAnalytics:
+      type: object
+      properties:
+        pair:
+          type: string
+        shareOfTraders:
+          type: integer
+        volume:
+          type: string
+        longsPct:
+          type: integer
+        shortsPct:
+          type: integer
+      required: [pair, shareOfTraders, volume, longsPct, shortsPct]
+
+    LeverageBucket:
+      type: object
+      properties:
+        label:
+          type: string
+        pct:
+          type: integer
+        count:
+          type: integer
+      required: [label, pct, count]
+
+    MacroEvent:
+      type: object
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        note:
+          type: string
+        direction:
+          type: string
+          enum: [up, down, neutral]
+      required: [label, value, note, direction]
+
+    AnalyticsSummary:
+      type: object
+      properties:
+        crowdPositions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PairAnalytics"
+        leverageDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeverageBucket"
+        overallLongPct:
+          type: integer
+        overallShortPct:
+          type: integer
+        avgLeverage:
+          type: number
+        activeTraders:
+          type: integer
+        macroEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/MacroEvent"
+      required:
+        - crowdPositions
+        - leverageDistribution
+        - overallLongPct
+        - overallShortPct
+        - avgLeverage
+        - activeTraders
+        - macroEvents
+
+    MarketTicker:
+      type: object
+      properties:
+        symbol:
+          type: string
+        price:
+          type: string
+        change24h:
+          type: string
+        changePct24h:
+          type: string
+        isUp:
+          type: boolean
+      required: [symbol, price, change24h, changePct24h, isUp]
+
+    MarketPrices:
+      type: object
+      properties:
+        tickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketTicker"
+        updatedAt:
+          type: string
+      required: [tickers, updatedAt]
+
+    WhalePosition:
+      type: object
+      properties:
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        repScore:
+          type: integer
+        positionSizeUsd:
+          type: string
+        pair:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        leverage:
+          type: string
+        timeAgo:
+          type: string
+        traderId:
+          type: integer
+      required:
+        - traderUsername
+        - traderHandle
+        - repScore
+        - positionSizeUsd
+        - pair
+        - side
+        - leverage
+        - timeAgo
+        - traderId
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        id:
+          type: integer
+        username:
+          type: string
+        handle:
+          type: string
+        repScore:
+          type: integer
+        tier:
+          type: string
+        pnl30d:
+          type: string
+        winRate:
+          type: number
+        copiersCount:
+          type: integer
+        totalTrades:
+          type: integer
+      required:
+        - rank
+        - id
+        - username
+        - handle
+        - repScore
+        - tier
+        - pnl30d
+        - winRate
+        - copiersCount
+        - totalTrades

@@ -1,0 +1,21 @@
+import { pgTable, serial, text, numeric, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+
+export const traderTierEnum = pgEnum("trader_tier", ["BRONZE", "SILVER", "GOLD", "DIAMOND"]);
+
+export const tradersTable = pgTable("traders", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  handle: text("handle").notNull().unique(),
+  avatarUrl: text("avatar_url"),
+  bio: text("bio"),
+  repScore: numeric("rep_score", { precision: 5, scale: 2 }).notNull().default("0"),
+  tier: traderTierEnum("tier").notNull().default("BRONZE"),
+  totalPnlUsd: numeric("total_pnl_usd", { precision: 18, scale: 2 }).notNull().default("0"),
+  winRate: numeric("win_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  tradeCount: integer("trade_count").notNull().default(0),
+  followerCount: integer("follower_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Trader = typeof tradersTable.$inferSelect;
+export type InsertTrader = typeof tradersTable.$inferInsert;
