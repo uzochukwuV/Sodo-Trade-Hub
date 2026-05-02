@@ -40,18 +40,17 @@ function fmtPnl(usd: string) {
   return "$" + n.toFixed(0);
 }
 
-const MY_FOLLOWER_ID = 999;
+const MY_COPIER_ID = 999;
 
 export default function CopyTrading() {
   const { toast } = useToast();
   const [selectedLeaderId, setSelectedLeaderId] = useState<number | null>(null);
-  const [maxSize, setMaxSize] = useState(500);
-  const [maxLeverage, setMaxLeverage] = useState(5);
-  const [stopLoss, setStopLoss] = useState(10);
+  const [maxPerTrade, setMaxPerTrade] = useState(500);
+  const [stopDrawdown, setStopDrawdown] = useState(10);
   const [active, setActive] = useState(true);
 
-  const { data: configsData } = useListCopyConfigs(
-    { followerId: MY_FOLLOWER_ID },
+  const { data: configsData, refetch: refetchConfigs } = useListCopyConfigs(
+    { copierId: MY_COPIER_ID },
     { query: { queryKey: ["copyConfigs"] } }
   );
   const { data: tradersData, isLoading: isLoadingTraders } = useListTraders(
@@ -67,16 +66,23 @@ export default function CopyTrading() {
     if (!leader) return;
     upsertConfig({
       data: {
-        followerId: MY_FOLLOWER_ID,
+        copierId: MY_COPIER_ID,
         leaderId: leader.id,
         isActive: active,
-        maxPositionSizeUsd: maxSize,
-        maxLeverage,
-        stopLossPct: stopLoss,
+        maxPerTradeUsd: maxPerTrade,
+        stopCopyDrawdownPct: stopDrawdown,
+        copyRatioPct: 100,
+        allowedPairs: [],
+        copyPerps: true,
+        copySpot: false,
       },
     }, {
       onSuccess: () => {
+        refetchConfigs();
         toast({ title: active ? "Copy trading activated" : "Copy trading paused", description: `Linked to ${leader.username}` });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to save copy config", variant: "destructive" });
       },
     });
   };
@@ -94,7 +100,7 @@ export default function CopyTrading() {
           <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground mb-3.5 uppercase">SELECT LEADER</div>
           <div className="flex flex-col gap-2 mb-5">
             {leaders.map((l) => {
-              const isSelected = (selectedLeaderId === null ? l.id === leader?.id : selectedLeaderId === l.id);
+              const isSelected = selectedLeaderId === null ? l.id === leader?.id : selectedLeaderId === l.id;
               return (
                 <div
                   key={l.id}
@@ -147,25 +153,17 @@ export default function CopyTrading() {
                 <div>
                   <div className="flex justify-between mb-2.5">
                     <span className="text-muted-foreground text-[11px] font-bold tracking-wider">MAX PER TRADE</span>
-                    <span className="text-accent font-black text-[15px] font-mono">${maxSize}</span>
+                    <span className="text-accent font-black text-[15px] font-mono">${maxPerTrade}</span>
                   </div>
-                  <Slider value={maxSize} onChange={setMaxSize} min={100} max={5000} accent />
+                  <Slider value={maxPerTrade} onChange={setMaxPerTrade} min={100} max={5000} accent />
                   <div className="text-muted-foreground text-[11px] mt-2">Cap any single copied position</div>
                 </div>
                 <div>
                   <div className="flex justify-between mb-2.5">
-                    <span className="text-muted-foreground text-[11px] font-bold tracking-wider">MAX LEVERAGE</span>
-                    <span className="text-white font-black text-[15px] font-mono">{maxLeverage}×</span>
-                  </div>
-                  <Slider value={maxLeverage} onChange={setMaxLeverage} min={1} max={20} />
-                  <div className="text-muted-foreground text-[11px] mt-2">Cap leverage on copied trades</div>
-                </div>
-                <div>
-                  <div className="flex justify-between mb-2.5">
                     <span className="text-muted-foreground text-[11px] font-bold tracking-wider">AUTO STOP-COPY</span>
-                    <span className="text-destructive font-black text-[15px] font-mono">-{stopLoss}%</span>
+                    <span className="text-destructive font-black text-[15px] font-mono">-{stopDrawdown}%</span>
                   </div>
-                  <Slider value={stopLoss} onChange={setStopLoss} min={5} max={50} />
+                  <Slider value={stopDrawdown} onChange={setStopDrawdown} min={5} max={50} />
                   <div className="text-muted-foreground text-[11px] mt-2">Stop copying if drawdown exceeds this</div>
                 </div>
                 <div className="flex items-center gap-4 border border-border p-4">
@@ -174,6 +172,27 @@ export default function CopyTrading() {
                     <div className="text-muted-foreground text-[11px]">{active ? "Actively mirroring trades" : "Copying paused"}</div>
                   </div>
                   <Toggle value={active} onChange={setActive} />
+                </div>
+                <div className="border border-border p-4 bg-background">
+                  <div className="text-muted-foreground text-[10px] font-extrabold tracking-wider mb-2">LEADER STATS</div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">TOTAL PNL</div>
+                      <div className="text-accent font-black font-mono">{fmtPnl(leader.totalPnlUsd)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">WIN RATE</div>
+                      <div className="text-white font-black font-mono">{Number(leader.winRate).toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">REP SCORE</div>
+                      <div className="text-white font-black font-mono">{Number(leader.repScore).toFixed(1)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-[9px] font-bold tracking-wider">FOLLOWERS</div>
+                      <div className="text-white font-black font-mono">{leader.followerCount.toLocaleString()}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -185,7 +204,7 @@ export default function CopyTrading() {
                   {active ? `COPYING ${leader.username} — LIVE SYNC` : "COPY PAUSED"}
                 </div>
                 <div className="text-muted-foreground text-[11px] mt-1">
-                  MAX ${maxSize} / TRADE · MAX {maxLeverage}× LEVERAGE · STOP AT -{stopLoss}%
+                  MAX ${maxPerTrade} / TRADE · STOP AT -{stopDrawdown}%
                 </div>
               </div>
             </div>
@@ -208,15 +227,14 @@ export default function CopyTrading() {
 
       {configsData?.configs && configsData.configs.length > 0 && (
         <div className="mt-8 border border-border bg-card p-6">
-          <div className="font-black text-sm tracking-wide text-white mb-5">ACTIVE COPY CONFIGS</div>
+          <div className="font-black text-sm tracking-wide text-white mb-5">YOUR ACTIVE COPY CONFIGS</div>
           <div className="flex flex-col gap-0">
             {configsData.configs.map((c, i) => (
               <div key={c.id} className={`flex items-center gap-4 py-3.5 ${i < configsData.configs.length - 1 ? "border-b border-border/50" : ""}`}>
                 <div className={`w-2 h-2 rounded-full ${c.isActive ? "bg-accent" : "bg-muted-foreground"}`} />
-                <span className="text-white font-bold text-xs tracking-wide flex-1">{c.leaderUsername ?? `TRADER #${c.leaderId}`}</span>
-                <span className="text-muted-foreground text-[10px] font-mono">MAX ${c.maxPositionSizeUsd}</span>
-                <span className="text-muted-foreground text-[10px] font-mono">{c.maxLeverage}× LEV</span>
-                <span className="text-muted-foreground text-[10px] font-mono">-{c.stopLossPct}% STOP</span>
+                <span className="text-white font-bold text-xs tracking-wide flex-1">{c.leaderUsername}</span>
+                <span className="text-muted-foreground text-[10px] font-mono">MAX ${c.maxPerTradeUsd}</span>
+                <span className="text-muted-foreground text-[10px] font-mono">-{c.stopCopyDrawdownPct}% STOP</span>
                 <span className={`text-[9px] font-extrabold px-2 py-0.5 border tracking-wider ${
                   c.isActive ? "border-accent/50 text-accent" : "border-border text-muted-foreground"
                 }`}>{c.isActive ? "ACTIVE" : "PAUSED"}</span>

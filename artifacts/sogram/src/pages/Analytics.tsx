@@ -1,14 +1,6 @@
 import { useGetAnalyticsSummary, useGetWhaleActivity } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const h = Math.floor(diff / 3600000);
-  if (h < 1) return `${Math.floor(diff / 60000)}m ago`;
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
 function fmtNum(n: number) {
   if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
   if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
@@ -137,21 +129,21 @@ export default function Analytics() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
-            {whalesData?.positions?.map((w, i) => (
+            {whalesData?.whales?.slice(0, 8).map((w, i) => (
               <div key={i} className="border border-border p-3.5 flex items-center gap-3.5 bg-background" data-testid={`whale-${i}`}>
                 <div className="w-9 h-9 border-[1.5px] border-border flex items-center justify-center text-xs font-black text-muted-foreground shrink-0">
-                  {w.trader.slice(0, 2).toUpperCase()}
+                  {w.traderUsername.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-extrabold text-xs tracking-wide text-white">{w.trader}</span>
+                    <span className="font-extrabold text-xs tracking-wide text-white">{w.traderUsername}</span>
                     <span className={`text-[8px] font-black px-1.5 py-0.5 tracking-wider border ${
                       w.side === "LONG" ? "border-accent/60 text-accent" : "border-destructive/60 text-destructive"
                     }`}>{w.side} {w.leverage}×</span>
-                    <span className="font-bold text-xs text-muted-foreground font-mono">{w.asset}</span>
+                    <span className="font-bold text-xs text-muted-foreground font-mono">{w.pair}</span>
                   </div>
                   <div className="text-muted-foreground text-[10px] font-bold">
-                    ${Number(w.size).toLocaleString()} · {timeAgo(w.openedAt)}
+                    {fmtNum(Number(w.positionSizeUsd))} · {w.timeAgo}
                   </div>
                 </div>
                 <button className="bg-transparent border border-accent/50 text-accent px-3 py-1.5 text-[10px] font-extrabold cursor-pointer tracking-wider hover:bg-accent hover:text-background transition-colors">

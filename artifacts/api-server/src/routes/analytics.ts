@@ -60,27 +60,58 @@ router.get("/analytics/market-prices", async (_req, res) => {
   res.json({ prices });
 });
 
-router.get("/analytics/whale-activity", async (_req, res) => {
-  const assets = ["BTC", "ETH", "SOL", "BNB", "ARB"];
-  const positions = assets.flatMap(asset => [
-    {
-      asset,
-      side: "LONG" as const,
-      size: (Math.random() * 10000000).toFixed(0),
-      leverage: Math.floor(Math.random() * 20) + 1,
-      trader: `whale_${Math.floor(Math.random() * 999)}`,
-      openedAt: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-    },
-    {
-      asset,
-      side: "SHORT" as const,
-      size: (Math.random() * 5000000).toFixed(0),
-      leverage: Math.floor(Math.random() * 10) + 1,
-      trader: `whale_${Math.floor(Math.random() * 999)}`,
-      openedAt: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-    },
-  ]);
-  res.json({ positions });
+const WHALE_TRADERS = [
+  { username: "CryptoWhale99", handle: "cryptowhale99", repScore: 94.5, id: 1 },
+  { username: "SolanaKing", handle: "solanaking", repScore: 87.2, id: 2 },
+  { username: "EthDegenX", handle: "ethdegen_x", repScore: 81.0, id: 3 },
+  { username: "ArbArbitrage", handle: "arb_arb", repScore: 76.4, id: 4 },
+  { username: "BNBBull", handle: "bnbbull", repScore: 69.1, id: 5 },
+];
+
+function randomWhaleTrader() {
+  return WHALE_TRADERS[Math.floor(Math.random() * WHALE_TRADERS.length)];
+}
+
+function formatTimeAgo(ms: number): string {
+  const h = Math.floor(ms / 3600000);
+  if (h < 1) return `${Math.floor(ms / 60000)}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+router.get("/analytics/whales", async (_req, res) => {
+  const pairs = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "ARB/USDT"];
+  const whales = pairs.flatMap(pair => {
+    const longTrader = randomWhaleTrader();
+    const shortTrader = randomWhaleTrader();
+    const longAgo = Math.random() * 86400000;
+    const shortAgo = Math.random() * 86400000;
+    return [
+      {
+        traderId: longTrader.id,
+        traderUsername: longTrader.username,
+        traderHandle: longTrader.handle,
+        repScore: longTrader.repScore,
+        pair,
+        side: "LONG" as const,
+        positionSizeUsd: (Math.random() * 10000000 + 500000).toFixed(0),
+        leverage: String(Math.floor(Math.random() * 20) + 1),
+        timeAgo: formatTimeAgo(longAgo),
+      },
+      {
+        traderId: shortTrader.id,
+        traderUsername: shortTrader.username,
+        traderHandle: shortTrader.handle,
+        repScore: shortTrader.repScore,
+        pair,
+        side: "SHORT" as const,
+        positionSizeUsd: (Math.random() * 5000000 + 200000).toFixed(0),
+        leverage: String(Math.floor(Math.random() * 10) + 1),
+        timeAgo: formatTimeAgo(shortAgo),
+      },
+    ];
+  });
+  res.json({ whales });
 });
 
 router.get("/leaderboard", async (req, res) => {
@@ -95,25 +126,19 @@ router.get("/leaderboard", async (req, res) => {
 
   const entries = traders.map((t, i) => ({
     rank: offset + i + 1,
-    trader: {
-      id: t.id,
-      username: t.username,
-      handle: t.handle,
-      avatarUrl: t.avatarUrl,
-      repScore: Number(t.repScore),
-      tier: t.tier,
-      totalPnlUsd: t.totalPnlUsd,
-      winRate: Number(t.winRate),
-      tradeCount: t.tradeCount,
-      followerCount: t.followerCount,
-    },
-    pnlUsd: t.totalPnlUsd,
+    id: t.id,
+    username: t.username,
+    handle: t.handle,
+    repScore: Number(t.repScore),
+    tier: t.tier,
+    totalPnlUsd: t.totalPnlUsd,
     winRate: Number(t.winRate),
     tradeCount: t.tradeCount,
+    followerCount: t.followerCount,
     period,
   }));
 
-  res.json({ entries, total: entries.length, period });
+  res.json({ traders: entries, total: entries.length, period });
 });
 
 export default router;
