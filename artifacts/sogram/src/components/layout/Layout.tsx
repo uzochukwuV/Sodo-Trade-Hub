@@ -8,6 +8,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { label: "FEED", path: "/" },
     { label: "SIGNALS", path: "/signals" },
     { label: "PAIN ROOM", path: "/pain-room", hot: true },
+    { label: "INTENTS", path: "/intents", hot: true },
     { label: "COPY", path: "/copy" },
     { label: "ANALYTICS", path: "/analytics", pro: true },
     { label: "TRADERS", path: "/traders" },

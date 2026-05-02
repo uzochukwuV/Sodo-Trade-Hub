@@ -15,6 +15,8 @@ export const tradesTable = pgTable("trades", {
   positionSize: numeric("position_size", { precision: 18, scale: 4 }).notNull(),
   leverage: integer("leverage").notNull().default(1),
   isVerified: boolean("is_verified").notNull().default(false),
+  isOnChainVerified: boolean("is_on_chain_verified").notNull().default(false),
+  txHash: text("tx_hash"),
   likeCount: integer("like_count").notNull().default(0),
   comment: text("comment"),
   closedAt: timestamp("closed_at").defaultNow().notNull(),

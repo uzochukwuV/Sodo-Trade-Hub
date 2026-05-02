@@ -49,7 +49,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [all, wins, signals]
+            enum: [all, wins, signals, losses, whales]
             default: all
         - name: limit
           in: query
@@ -608,6 +608,112 @@ paths:
                       $ref: "#/components/schemas/WhalePosition"
                 required: [whales]
 
+  /intents:
+    get:
+      operationId: listIntents
+      tags: [signals]
+      summary: List trade intents (pre-trade setups for validation)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed_hit, closed_miss, expired]
+        - name: asset
+          in: query
+          schema:
+            type: string
+        - name: side
+          in: query
+          schema:
+            type: string
+            enum: [LONG, SHORT]
+        - name: traderId
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of trade intents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListIntentsResponse"
+    post:
+      operationId: createIntent
+      tags: [signals]
+      summary: Post a new trade intent (pre-trade setup for community validation)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIntentBody"
+      responses:
+        "201":
+          description: Intent created
+
+  /intents/{intentId}/vote:
+    post:
+      operationId: voteIntent
+      tags: [signals]
+      summary: Vote valid or invalid on a trade intent
+      parameters:
+        - name: intentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteIntentBody"
+      responses:
+        "200":
+          description: Vote recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteIntentResponse"
+
+  /intents/{intentId}/resolve:
+    post:
+      operationId: resolveIntent
+      tags: [signals]
+      summary: Resolve an intent as hit or miss, rewarding correct voters
+      parameters:
+        - name: intentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                outcome:
+                  type: string
+                  enum: [hit, miss]
+              required: [outcome]
+      responses:
+        "200":
+          description: Intent resolved
+
   /leaderboard:
     get:
       operationId: getLeaderboard
@@ -828,7 +934,7 @@ components:
         traderHandle:
           type: string
         traderRepScore:
-          type: integer
+          type: number
         traderTier:
           type: string
         asset:
@@ -847,23 +953,26 @@ components:
         positionSize:
           type: string
         leverage:
-          type: string
-        duration:
-          type: string
-        caption:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
+          type: integer
+        isVerified:
+          type: boolean
         isOnChainVerified:
           type: boolean
+        txHash:
+          type: string
+          nullable: true
+        likeCount:
+          type: integer
         likes:
           type: integer
-        copies:
-          type: integer
-        comments:
-          type: integer
+        caption:
+          type: string
+          nullable: true
+        comment:
+          type: string
+          nullable: true
+        closedAt:
+          type: string
         createdAt:
           type: string
       required:
@@ -881,13 +990,8 @@ components:
         - pnlPct
         - positionSize
         - leverage
-        - duration
-        - caption
-        - tags
         - isOnChainVerified
-        - likes
-        - copies
-        - comments
+        - likeCount
         - createdAt
 
     CreateTradeBody:
@@ -911,17 +1015,12 @@ components:
         positionSize:
           type: string
         leverage:
+          type: integer
+        comment:
           type: string
-        duration:
+        txHash:
           type: string
-        caption:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        isOnChainVerified:
-          type: boolean
+          description: "Optional 0x-prefixed 64-char hex transaction hash. Sets isOnChainVerified=true when present."
       required:
         - traderId
         - asset
@@ -932,8 +1031,6 @@ components:
         - pnlPct
         - positionSize
         - leverage
-        - duration
-        - caption
 
     Signal:
       type: object
@@ -1091,17 +1188,199 @@ components:
         - confidence
         - caption
 
+    TradeIntent:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: number
+        traderTier:
+          type: string
+        traderValidationAccuracy:
+          type: number
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: string
+        targetPrice:
+          type: string
+        stopLoss:
+          type: string
+        leverage:
+          type: integer
+        reasoning:
+          type: string
+        votesValid:
+          type: integer
+        votesInvalid:
+          type: integer
+        totalVotes:
+          type: integer
+        validPct:
+          type: integer
+        status:
+          type: string
+          enum: [open, closed_hit, closed_miss, expired]
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - traderId
+        - traderUsername
+        - traderHandle
+        - traderRepScore
+        - traderTier
+        - traderValidationAccuracy
+        - asset
+        - side
+        - entryPrice
+        - targetPrice
+        - stopLoss
+        - leverage
+        - reasoning
+        - votesValid
+        - votesInvalid
+        - totalVotes
+        - validPct
+        - status
+        - expiresAt
+        - createdAt
+
+    ListIntentsResponse:
+      type: object
+      properties:
+        intents:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeIntent"
+        total:
+          type: integer
+      required: [intents, total]
+
+    CreateIntentBody:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: string
+        targetPrice:
+          type: string
+        stopLoss:
+          type: string
+        leverage:
+          type: integer
+        reasoning:
+          type: string
+      required: [traderId, asset, side, entryPrice, targetPrice, stopLoss, reasoning]
+
+    VoteIntentBody:
+      type: object
+      properties:
+        vote:
+          type: string
+          enum: [valid, invalid]
+        voterId:
+          type: integer
+      required: [vote, voterId]
+
+    VoteIntentResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        votesValid:
+          type: integer
+        votesInvalid:
+          type: integer
+        totalVotes:
+          type: integer
+        validPct:
+          type: integer
+      required: [ok, votesValid, votesInvalid, totalVotes, validPct]
+
     FeedItem:
       type: object
       properties:
         type:
           type: string
-          enum: [trade, signal]
+          enum: [trade, signal, loss, whale]
         trade:
           $ref: "#/components/schemas/Trade"
         signal:
           $ref: "#/components/schemas/Signal"
+        loss:
+          $ref: "#/components/schemas/FeedLoss"
+        whale:
+          $ref: "#/components/schemas/WhalePosition"
       required: [type]
+
+    FeedLoss:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: number
+        traderTier:
+          type: string
+        isAnonymous:
+          type: boolean
+        asset:
+          type: string
+        side:
+          type: string
+        pnlUsd:
+          type: string
+        pnlPct:
+          type: string
+        leverage:
+          type: integer
+        comment:
+          type: string
+        breakdownCount:
+          type: integer
+        isResolved:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - traderId
+        - traderRepScore
+        - traderTier
+        - isAnonymous
+        - asset
+        - side
+        - pnlUsd
+        - pnlPct
+        - leverage
+        - breakdownCount
+        - isResolved
+        - createdAt
 
     FeedResponse:
       type: object

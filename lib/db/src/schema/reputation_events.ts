@@ -12,6 +12,8 @@ export const repEventTypeEnum = pgEnum("rep_event_type", [
   "streak_broken",
   "shield_earned",
   "shield_used",
+  "validation_correct",
+  "validation_wrong",
 ]);
 
 export const reputationEventsTable = pgTable("reputation_events", {

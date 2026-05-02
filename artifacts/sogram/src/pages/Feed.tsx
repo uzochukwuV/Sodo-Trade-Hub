@@ -3,6 +3,7 @@ import { useGetFeed, useLikeTrade, useLikeSignal } from "@workspace/api-client-r
 import type { FeedItem } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
 function RepCircle({ score }: { score: number }) {
   const color = score >= 90 ? "text-accent border-accent/50" : "text-white border-white/20";
@@ -13,11 +14,12 @@ function RepCircle({ score }: { score: number }) {
   );
 }
 
-function Tag({ label, accent, danger }: { label: string; accent?: boolean; danger?: boolean }) {
+function Tag({ label, accent, danger, dim }: { label: string; accent?: boolean; danger?: boolean; dim?: boolean }) {
   return (
     <span className={`text-[10px] font-bold tracking-wider px-2 py-0.5 border ${
       accent ? "bg-accent text-background border-accent" :
       danger ? "bg-transparent text-destructive border-destructive/60" :
+      dim ? "bg-transparent text-muted-foreground border-border/50" :
       "bg-transparent text-muted-foreground border-border"
     }`}>
       {label}
@@ -34,7 +36,8 @@ function timeAgo(iso: string) {
 }
 
 function fmt(n: number) {
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  if (n >= 1000) return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  return "$" + n.toFixed(2);
 }
 
 function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
@@ -45,11 +48,6 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
   const pnlPctNum = Number(post.pnlPct);
   const isWin = pnlNum >= 0;
 
-  const handleLike = () => {
-    likeTrade({ tradeId: post.id });
-    setLiked(true);
-  };
-
   return (
     <div className="border-t border-border py-6" data-testid={`feed-trade-${post.id}`}>
       <div className="flex gap-4">
@@ -59,6 +57,7 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             <span className="text-white font-extrabold text-sm tracking-wide">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <Tag label="WIN" accent={isWin} danger={!isWin} />
+            {post.isOnChainVerified && <Tag label="ON-CHAIN ✓" accent />}
             <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt)}</span>
           </div>
 
@@ -72,7 +71,6 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
                 <span className="text-white font-black text-[17px] tracking-wide">{post.asset}</span>
                 <Tag label={post.side} accent={isLong} danger={!isLong} />
                 <Tag label={`${post.leverage}×`} />
-                {post.isOnChainVerified && <Tag label="VERIFIED" accent />}
               </div>
               <div className="text-right">
                 <div className={`font-black text-[22px] font-mono tracking-tighter ${isWin ? "text-accent" : "text-destructive"}`}>
@@ -101,12 +99,10 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
           <div className="flex items-center gap-5">
             <button
               data-testid={`like-trade-${post.id}`}
-              onClick={handleLike}
-              className={`bg-transparent border-none cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
-                liked ? "text-accent" : "text-muted-foreground"
-              }`}
+              onClick={() => { likeTrade({ tradeId: post.id }); setLiked(true); }}
+              className={`bg-transparent border-none cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${liked ? "text-accent" : "text-muted-foreground"}`}
             >
-              ♥ {post.likes + (liked ? 1 : 0)}
+              ♥ {(post.likes ?? post.likeCount ?? 0) + (liked ? 1 : 0)}
             </button>
             <Button className="ml-auto bg-accent text-background hover:bg-accent/90 px-4 py-1.5 font-extrabold text-xs tracking-wide h-auto">
               COPY TRADE
@@ -137,9 +133,7 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
           <div className="flex items-center gap-2.5 mb-2 flex-wrap">
             <span className="text-white font-extrabold text-sm tracking-wide">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
-            <span className="bg-transparent border border-accent/60 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">
-              SIGNAL
-            </span>
+            <span className="bg-transparent border border-accent/60 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">SIGNAL</span>
             <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt ?? "")}</span>
           </div>
 
@@ -170,11 +164,7 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
               ] as [string, string][]).map(([l, v]) => (
                 <div key={l}>
                   <div className="text-muted-foreground text-[10px] font-bold tracking-wider mb-1">{l}</div>
-                  <div className={`font-bold text-[13px] font-mono ${
-                    l === "TARGET" ? "text-accent" : l === "STOP" ? "text-destructive" : "text-white"
-                  }`}>
-                    {v}
-                  </div>
+                  <div className={`font-bold text-[13px] font-mono ${l === "TARGET" ? "text-accent" : l === "STOP" ? "text-destructive" : "text-white"}`}>{v}</div>
                 </div>
               ))}
             </div>
@@ -184,9 +174,7 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
             <button
               data-testid={`like-signal-${post.id}`}
               onClick={() => { likeSignal({ signalId: post.id }); setLiked(true); }}
-              className={`bg-transparent border-none cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
-                liked ? "text-accent" : "text-muted-foreground"
-              }`}
+              className={`bg-transparent border-none cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${liked ? "text-accent" : "text-muted-foreground"}`}
             >
               ♥ {post.likeCount + (liked ? 1 : 0)}
             </button>
@@ -200,8 +188,131 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
   );
 }
 
+function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
+  const pnlNum = Number(post.pnlUsd);
+  const pnlPctNum = Number(post.pnlPct);
+  const isAnon = post.isAnonymous;
+
+  return (
+    <div className="border-t border-destructive/20 py-6 bg-destructive/[0.02]">
+      <div className="flex gap-4">
+        <div className="w-10 h-10 rounded-full border-[1.5px] border-destructive/40 flex items-center justify-center shrink-0">
+          <span className="text-destructive text-[11px] font-bold font-mono">
+            {isAnon ? "?" : post.traderRepScore.toFixed(0)}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+            <span className={`font-extrabold text-sm tracking-wide ${isAnon ? "text-muted-foreground italic" : "text-white"}`}>
+              {isAnon ? "Anonymous" : post.traderUsername}
+            </span>
+            {!isAnon && <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>}
+            <span className="bg-transparent border border-destructive/60 text-destructive px-2 py-0.5 text-[10px] font-bold tracking-wider">LOSS</span>
+            {post.isResolved && <span className="bg-transparent border border-accent/40 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">RESOLVED</span>}
+            <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt)}</span>
+          </div>
+
+          {post.comment && (
+            <p className="text-muted-foreground text-[13px] leading-relaxed mb-4 border-l-2 border-destructive/30 pl-3">
+              {post.comment}
+            </p>
+          )}
+
+          <div className="border border-destructive/25 p-4 mb-3.5 bg-card">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-white font-black text-[17px] tracking-wide">{post.asset}</span>
+                <Tag label={post.side} danger={post.side === "LONG"} accent={post.side === "SHORT"} />
+                <Tag label={`${post.leverage}×`} />
+              </div>
+              <div className="text-right">
+                <div className="font-black text-[22px] font-mono tracking-tighter text-destructive">
+                  {fmt(pnlNum)}
+                </div>
+                <div className="text-[13px] font-mono text-destructive">
+                  {pnlPctNum.toFixed(2)}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="text-muted-foreground text-[11px] font-bold">
+              💬 {post.breakdownCount} breakdown{post.breakdownCount !== 1 ? "s" : ""}
+            </span>
+            <Link href="/pain-room">
+              <button className="ml-auto text-[10px] font-extrabold tracking-wider border border-destructive/40 text-destructive px-4 py-1.5 hover:bg-destructive/10 transition-colors bg-transparent cursor-pointer">
+                {post.isResolved ? "VIEW BREAKDOWN" : "GIVE BREAKDOWN"}
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WhalePost({ post }: { post: NonNullable<FeedItem["whale"]> }) {
+  const sizeNum = Number(post.positionSizeUsd);
+  const isLong = post.side === "LONG";
+  const sizeFmt = sizeNum >= 1000000
+    ? `$${(sizeNum / 1000000).toFixed(1)}M`
+    : `$${(sizeNum / 1000).toFixed(0)}K`;
+
+  return (
+    <div className="border-t border-border py-5">
+      <div className="flex gap-4 items-center">
+        <div className="w-10 h-10 border-[1.5px] border-border flex items-center justify-center shrink-0">
+          <span className="text-muted-foreground text-[10px] font-black">🐋</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap mb-2">
+            <span className="text-white font-extrabold text-sm">{post.traderUsername}</span>
+            <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
+            <span className="bg-transparent border border-border text-muted-foreground px-2 py-0.5 text-[10px] font-bold tracking-wider">WHALE</span>
+            <span className="text-muted-foreground text-[11px] ml-auto">{post.timeAgo}</span>
+          </div>
+
+          <div className="border border-border p-3 bg-card flex items-center gap-4">
+            <div>
+              <div className="text-muted-foreground text-[9px] font-bold tracking-widest mb-0.5">PAIR</div>
+              <div className="text-white font-black text-base">{post.pair}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground text-[9px] font-bold tracking-widest mb-0.5">SIDE</div>
+              <div className={`font-black text-sm ${isLong ? "text-accent" : "text-destructive"}`}>{post.side}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground text-[9px] font-bold tracking-widest mb-0.5">SIZE</div>
+              <div className="text-white font-black text-base font-mono">{sizeFmt}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground text-[9px] font-bold tracking-widest mb-0.5">LEV</div>
+              <div className="text-white font-bold text-sm font-mono">{post.leverage}×</div>
+            </div>
+            <div className="ml-auto">
+              <div className="text-muted-foreground text-[9px] font-bold tracking-widest mb-0.5">NOTIONAL</div>
+              <div className={`font-black text-lg font-mono ${isLong ? "text-accent" : "text-destructive"}`}>{sizeFmt}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type FeedTab = "all" | "wins" | "signals" | "losses" | "whales";
+
+const TABS: { label: string; value: FeedTab }[] = [
+  { label: "ALL", value: "all" },
+  { label: "WINS", value: "wins" },
+  { label: "SIGNALS", value: "signals" },
+  { label: "LOSSES", value: "losses" },
+  { label: "WHALES", value: "whales" },
+];
+
 export default function Feed() {
-  const [tab, setTab] = useState<"all" | "wins" | "signals">("all");
+  const [tab, setTab] = useState<FeedTab>("all");
 
   const { data: feedData, isLoading } = useGetFeed(
     { filter: tab, limit: 20, offset: 0 },
@@ -210,21 +321,23 @@ export default function Feed() {
 
   return (
     <div className="px-8 pb-10 max-w-[800px] w-full">
+      {/* Tabs */}
       <div className="flex items-center gap-0 border-b border-border sticky top-0 bg-background z-10 -mx-8 px-8 mb-4">
-        {(["all", "wins", "signals"] as const).map((t) => (
+        {TABS.map(({ label, value }) => (
           <button
-            key={t}
-            data-testid={`tab-${t}`}
-            onClick={() => setTab(t)}
-            className={`bg-transparent border-none border-b-2 px-4 h-14 font-bold text-xs tracking-wider cursor-pointer uppercase ${
-              tab === t ? "text-accent border-accent" : "text-muted-foreground border-transparent"
+            key={value}
+            data-testid={`tab-${value}`}
+            onClick={() => setTab(value)}
+            className={`bg-transparent border-none border-b-2 px-4 h-14 font-bold text-xs tracking-wider cursor-pointer uppercase transition-colors ${
+              tab === value ? "text-accent border-accent" : "text-muted-foreground border-transparent hover:text-white"
             }`}
           >
-            {t}
+            {label}
           </button>
         ))}
       </div>
 
+      {/* Composer */}
       <div className="py-5 border-b border-border mb-1 flex gap-3.5 items-center">
         <div className="w-7 h-7 rounded-full border-[1.5px] border-border flex items-center justify-center text-muted-foreground text-[11px] font-bold">
           ME
@@ -251,14 +364,22 @@ export default function Feed() {
         </div>
       ) : (
         <div className="flex flex-col">
-          {feedData?.items?.map((item, idx) =>
-            item.type === "trade" && item.trade ? (
-              <WinPost key={`trade-${item.trade.id ?? idx}`} post={item.trade} />
-            ) : item.type === "signal" && item.signal ? (
-              <SignalPost key={`signal-${item.signal.id ?? idx}`} post={item.signal} />
-            ) : null
-          )}
-          {feedData?.items?.length === 0 && (
+          {(feedData?.items ?? []).map((item, idx) => {
+            if (item.type === "trade" && item.trade) {
+              return <WinPost key={`trade-${item.trade.id ?? idx}`} post={item.trade} />;
+            }
+            if (item.type === "signal" && item.signal) {
+              return <SignalPost key={`signal-${item.signal.id ?? idx}`} post={item.signal} />;
+            }
+            if (item.type === "loss" && item.loss) {
+              return <LossPost key={`loss-${item.loss.id ?? idx}`} post={item.loss} />;
+            }
+            if (item.type === "whale" && item.whale) {
+              return <WhalePost key={`whale-${item.whale.traderId}-${item.whale.pair}-${idx}`} post={item.whale} />;
+            }
+            return null;
+          })}
+          {(feedData?.items ?? []).length === 0 && (
             <div className="text-center text-muted-foreground py-16 text-sm tracking-wider font-bold">
               NO POSTS YET
             </div>

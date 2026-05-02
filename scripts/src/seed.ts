@@ -1,10 +1,12 @@
-import { db, tradersTable, tradesTable, signalsTable, copyConfigsTable, painRoomsTable, breakdownsTable, reputationEventsTable } from "@workspace/db";
+import { db, tradersTable, tradesTable, signalsTable, copyConfigsTable, painRoomsTable, breakdownsTable, reputationEventsTable, tradeIntentsTable, intentVotesTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 async function seed() {
   console.log("Seeding database...");
 
   await db.delete(reputationEventsTable);
+  await db.delete(intentVotesTable);
+  await db.delete(tradeIntentsTable);
   await db.delete(breakdownsTable);
   await db.delete(painRoomsTable);
   await db.delete(copyConfigsTable);
@@ -383,7 +385,96 @@ async function seed() {
     { traderId: traders[3].id, eventType: "trade_loss", delta: "-0.3", sourceId: null, sourceType: "trade", meta: "ARB/USDT LONG loss" },
   ]);
 
-  console.log(`Seed complete: ${traders.length} traders, ${painRooms.length} pain rooms, ${breakdowns.length} breakdowns.`);
+  const ts = Date.now();
+  const day = 86400000;
+
+  const intents = await db.insert(tradeIntentsTable).values([
+    {
+      traderId: traders[0].id,
+      asset: "BTC/USDT",
+      side: "LONG",
+      entryPrice: "67200.00",
+      targetPrice: "72000.00",
+      stopLoss: "64500.00",
+      leverage: 5,
+      reasoning: "Price holding above weekly EMA and volume profile POC. FOMC dovish pivot priced in. Institutional accumulation visible on-chain. R:R is 1.77 — targeting next ATH cluster.",
+      votesValid: 34,
+      votesInvalid: 8,
+      status: "open",
+      expiresAt: new Date(ts + day),
+    },
+    {
+      traderId: traders[1].id,
+      asset: "ETH/USDT",
+      side: "LONG",
+      entryPrice: "3420.00",
+      targetPrice: "3850.00",
+      stopLoss: "3250.00",
+      leverage: 3,
+      reasoning: "ETH/BTC ratio bouncing from 6-month support. Dencun upgrade fee reduction is underappreciated by market. Layer 2 TVL hitting all-time highs. Staking inflows accelerating.",
+      votesValid: 19,
+      votesInvalid: 5,
+      status: "open",
+      expiresAt: new Date(ts + day * 2),
+    },
+    {
+      traderId: traders[2].id,
+      asset: "SOL/USDT",
+      side: "SHORT",
+      entryPrice: "172.00",
+      targetPrice: "155.00",
+      stopLoss: "182.00",
+      leverage: 2,
+      reasoning: "SOL rejection at double-top resistance. FTX estate still has $1.2B in SOL tokens to unlock next month. Funding rates are negative suggesting weak longs. Taking the fade.",
+      votesValid: 11,
+      votesInvalid: 22,
+      status: "open",
+      expiresAt: new Date(ts + day * 1.5),
+    },
+    {
+      traderId: traders[3].id,
+      asset: "BNB/USDT",
+      side: "LONG",
+      entryPrice: "412.00",
+      targetPrice: "455.00",
+      stopLoss: "390.00",
+      leverage: 4,
+      reasoning: "BNB forming ascending triangle on 4H with decreasing volume. Binance burn event in 3 days is historically bullish catalyst. DEX volumes on BSC up 45% this week.",
+      votesValid: 7,
+      votesInvalid: 3,
+      status: "closed_hit",
+      expiresAt: new Date(ts - day),
+    },
+    {
+      traderId: traders[4].id,
+      asset: "AVAX/USDT",
+      side: "LONG",
+      entryPrice: "38.50",
+      targetPrice: "44.00",
+      stopLoss: "35.80",
+      leverage: 3,
+      reasoning: "AVAX institutional accumulation from Grayscale fund flows. Subnet TVL hits $8B. Price is at the top of a key demand zone that has held 4 times. Risk defined.",
+      votesValid: 0,
+      votesInvalid: 0,
+      status: "open",
+      expiresAt: new Date(ts + day * 3),
+    },
+  ]).returning();
+
+  await db.insert(intentVotesTable).values([
+    { intentId: intents[0].id, voterId: traders[2].id, vote: "valid" },
+    { intentId: intents[0].id, voterId: traders[3].id, vote: "valid" },
+    { intentId: intents[0].id, voterId: traders[4].id, vote: "invalid" },
+    { intentId: intents[1].id, voterId: traders[0].id, vote: "valid" },
+    { intentId: intents[1].id, voterId: traders[5].id, vote: "invalid" },
+    { intentId: intents[2].id, voterId: traders[0].id, vote: "invalid" },
+    { intentId: intents[2].id, voterId: traders[1].id, vote: "invalid" },
+    { intentId: intents[2].id, voterId: traders[4].id, vote: "valid" },
+    { intentId: intents[3].id, voterId: traders[1].id, vote: "valid" },
+    { intentId: intents[3].id, voterId: traders[5].id, vote: "valid" },
+  ]);
+
+  console.log(`Seed complete: ${traders.length} traders, ${painRooms.length} pain rooms, ${breakdowns.length} breakdowns, ${intents.length} intents.`);
   process.exit(0);
 }
 

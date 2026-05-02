@@ -114,6 +114,36 @@ export async function fireRepEvent(
         .set({ streakShields: sql`GREATEST(0, ${tradersTable.streakShields} - 1)` })
         .where(eq(tradersTable.id, traderId));
       break;
+
+    case "validation_correct":
+      await db.update(tradersTable)
+        .set({
+          validationAccuracy: sql`
+            LEAST(100, ROUND(
+              CASE WHEN ${tradersTable.validationAccuracy} = 0 THEN 60
+              ELSE (${tradersTable.validationAccuracy} * 0.9 + 100 * 0.1)
+              END, 2
+            ))
+          `,
+          repScore: sql`LEAST(100, ${tradersTable.repScore} + 0.3)`,
+        })
+        .where(eq(tradersTable.id, traderId));
+      break;
+
+    case "validation_wrong":
+      await db.update(tradersTable)
+        .set({
+          validationAccuracy: sql`
+            GREATEST(0, ROUND(
+              CASE WHEN ${tradersTable.validationAccuracy} = 0 THEN 40
+              ELSE (${tradersTable.validationAccuracy} * 0.9 + 0 * 0.1)
+              END, 2
+            ))
+          `,
+          repScore: sql`GREATEST(0, ${tradersTable.repScore} - 0.1)`,
+        })
+        .where(eq(tradersTable.id, traderId));
+      break;
   }
 }
 

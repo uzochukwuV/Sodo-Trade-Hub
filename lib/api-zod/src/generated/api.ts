@@ -23,7 +23,7 @@ export const getFeedQueryOffsetDefault = 0;
 
 export const GetFeedQueryParams = zod.object({
   filter: zod
-    .enum(["all", "wins", "signals"])
+    .enum(["all", "wins", "signals", "losses", "whales"])
     .default(getFeedQueryFilterDefault),
   limit: zod.coerce.number().default(getFeedQueryLimitDefault),
   offset: zod.coerce.number().default(getFeedQueryOffsetDefault),
@@ -32,7 +32,7 @@ export const GetFeedQueryParams = zod.object({
 export const GetFeedResponse = zod.object({
   items: zod.array(
     zod.object({
-      type: zod.enum(["trade", "signal"]),
+      type: zod.enum(["trade", "signal", "loss", "whale"]),
       trade: zod
         .object({
           id: zod.number(),
@@ -48,14 +48,15 @@ export const GetFeedResponse = zod.object({
           pnlUsd: zod.string(),
           pnlPct: zod.string(),
           positionSize: zod.string(),
-          leverage: zod.string(),
-          duration: zod.string(),
-          caption: zod.string(),
-          tags: zod.array(zod.string()),
+          leverage: zod.number(),
+          isVerified: zod.boolean().optional(),
           isOnChainVerified: zod.boolean(),
-          likes: zod.number(),
-          copies: zod.number(),
-          comments: zod.number(),
+          txHash: zod.string().nullish(),
+          likeCount: zod.number(),
+          likes: zod.number().optional(),
+          caption: zod.string().nullish(),
+          comment: zod.string().nullish(),
+          closedAt: zod.string().optional(),
           createdAt: zod.string(),
         })
         .optional(),
@@ -78,6 +79,39 @@ export const GetFeedResponse = zod.object({
           likeCount: zod.number(),
           isActive: zod.boolean(),
           createdAt: zod.string(),
+        })
+        .optional(),
+      loss: zod
+        .object({
+          id: zod.number(),
+          traderId: zod.number(),
+          traderUsername: zod.string().optional(),
+          traderHandle: zod.string().optional(),
+          traderRepScore: zod.number(),
+          traderTier: zod.string(),
+          isAnonymous: zod.boolean(),
+          asset: zod.string(),
+          side: zod.string(),
+          pnlUsd: zod.string(),
+          pnlPct: zod.string(),
+          leverage: zod.number(),
+          comment: zod.string().optional(),
+          breakdownCount: zod.number(),
+          isResolved: zod.boolean(),
+          createdAt: zod.string(),
+        })
+        .optional(),
+      whale: zod
+        .object({
+          traderUsername: zod.string(),
+          traderHandle: zod.string(),
+          repScore: zod.number(),
+          positionSizeUsd: zod.string(),
+          pair: zod.string(),
+          side: zod.enum(["LONG", "SHORT"]),
+          leverage: zod.string(),
+          timeAgo: zod.string(),
+          traderId: zod.number(),
         })
         .optional(),
     }),
@@ -198,14 +232,15 @@ export const GetTraderResponse = zod
           pnlUsd: zod.string(),
           pnlPct: zod.string(),
           positionSize: zod.string(),
-          leverage: zod.string(),
-          duration: zod.string(),
-          caption: zod.string(),
-          tags: zod.array(zod.string()),
+          leverage: zod.number(),
+          isVerified: zod.boolean().optional(),
           isOnChainVerified: zod.boolean(),
-          likes: zod.number(),
-          copies: zod.number(),
-          comments: zod.number(),
+          txHash: zod.string().nullish(),
+          likeCount: zod.number(),
+          likes: zod.number().optional(),
+          caption: zod.string().nullish(),
+          comment: zod.string().nullish(),
+          closedAt: zod.string().optional(),
           createdAt: zod.string(),
         }),
       ),
@@ -279,14 +314,15 @@ export const GetTraderTradesResponse = zod.object({
       pnlUsd: zod.string(),
       pnlPct: zod.string(),
       positionSize: zod.string(),
-      leverage: zod.string(),
-      duration: zod.string(),
-      caption: zod.string(),
-      tags: zod.array(zod.string()),
+      leverage: zod.number(),
+      isVerified: zod.boolean().optional(),
       isOnChainVerified: zod.boolean(),
-      likes: zod.number(),
-      copies: zod.number(),
-      comments: zod.number(),
+      txHash: zod.string().nullish(),
+      likeCount: zod.number(),
+      likes: zod.number().optional(),
+      caption: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      closedAt: zod.string().optional(),
       createdAt: zod.string(),
     }),
   ),
@@ -304,11 +340,14 @@ export const CreateTradeBody = zod.object({
   pnlUsd: zod.string(),
   pnlPct: zod.string(),
   positionSize: zod.string(),
-  leverage: zod.string(),
-  duration: zod.string(),
-  caption: zod.string(),
-  tags: zod.array(zod.string()).optional(),
-  isOnChainVerified: zod.boolean().optional(),
+  leverage: zod.number(),
+  comment: zod.string().optional(),
+  txHash: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional 0x-prefixed 64-char hex transaction hash. Sets isOnChainVerified=true when present.",
+    ),
 });
 
 /**
@@ -706,6 +745,95 @@ export const GetWhaleActivityResponse = zod.object({
       traderId: zod.number(),
     }),
   ),
+});
+
+/**
+ * @summary List trade intents (pre-trade setups for validation)
+ */
+export const listIntentsQueryLimitDefault = 20;
+export const listIntentsQueryOffsetDefault = 0;
+
+export const ListIntentsQueryParams = zod.object({
+  status: zod.enum(["open", "closed_hit", "closed_miss", "expired"]).optional(),
+  asset: zod.coerce.string().optional(),
+  side: zod.enum(["LONG", "SHORT"]).optional(),
+  traderId: zod.coerce.number().optional(),
+  limit: zod.coerce.number().default(listIntentsQueryLimitDefault),
+  offset: zod.coerce.number().default(listIntentsQueryOffsetDefault),
+});
+
+export const ListIntentsResponse = zod.object({
+  intents: zod.array(
+    zod.object({
+      id: zod.number(),
+      traderId: zod.number(),
+      traderUsername: zod.string(),
+      traderHandle: zod.string(),
+      traderRepScore: zod.number(),
+      traderTier: zod.string(),
+      traderValidationAccuracy: zod.number(),
+      asset: zod.string(),
+      side: zod.enum(["LONG", "SHORT"]),
+      entryPrice: zod.string(),
+      targetPrice: zod.string(),
+      stopLoss: zod.string(),
+      leverage: zod.number(),
+      reasoning: zod.string(),
+      votesValid: zod.number(),
+      votesInvalid: zod.number(),
+      totalVotes: zod.number(),
+      validPct: zod.number(),
+      status: zod.enum(["open", "closed_hit", "closed_miss", "expired"]),
+      expiresAt: zod.string(),
+      createdAt: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Post a new trade intent (pre-trade setup for community validation)
+ */
+export const CreateIntentBody = zod.object({
+  traderId: zod.number(),
+  asset: zod.string(),
+  side: zod.enum(["LONG", "SHORT"]),
+  entryPrice: zod.string(),
+  targetPrice: zod.string(),
+  stopLoss: zod.string(),
+  leverage: zod.number().optional(),
+  reasoning: zod.string(),
+});
+
+/**
+ * @summary Vote valid or invalid on a trade intent
+ */
+export const VoteIntentParams = zod.object({
+  intentId: zod.coerce.number(),
+});
+
+export const VoteIntentBody = zod.object({
+  vote: zod.enum(["valid", "invalid"]),
+  voterId: zod.number(),
+});
+
+export const VoteIntentResponse = zod.object({
+  ok: zod.boolean(),
+  votesValid: zod.number(),
+  votesInvalid: zod.number(),
+  totalVotes: zod.number(),
+  validPct: zod.number(),
+});
+
+/**
+ * @summary Resolve an intent as hit or miss, rewarding correct voters
+ */
+export const ResolveIntentParams = zod.object({
+  intentId: zod.coerce.number(),
+});
+
+export const ResolveIntentBody = zod.object({
+  outcome: zod.enum(["hit", "miss"]),
 });
 
 /**

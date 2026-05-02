@@ -8,6 +8,7 @@ import copyRouter from "./copy";
 import analyticsRouter from "./analytics";
 import painRoomsRouter from "./pain_rooms";
 import reputationRouter from "./reputation";
+import intentsRouter from "./intents";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(copyRouter);
 router.use(analyticsRouter);
 router.use(painRoomsRouter);
 router.use(reputationRouter);
+router.use(intentsRouter);
 
 export default router;

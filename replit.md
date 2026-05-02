@@ -57,15 +57,17 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
 ### Placeholder IDs
 - `CopyTrading.tsx`: `MY_COPIER_ID = 999`
-- `PainRoom.tsx`: `MY_TRADER_ID = 1`
+- `PainRoom.tsx`: `MY_TRADER_ID = 17`
+- `Intents.tsx`: `MY_VOTER_ID = 17`
 
 ## Pages Built
 
 | Page | Route | Status |
 |------|-------|--------|
-| Feed | `/` | Live — trade win/loss posts + signals mixed feed |
-| Signals | `/signals` | Live — filter grid, confidence slider, grid/list toggle |
-| Pain Room | `/pain-room` | Live — verified losses, structured community breakdowns |
+| Feed | `/` | Live — 4 post types (win/loss/signal/whale), LOSSES + WHALES tabs |
+| Signals | `/signals` | Live — filter grid, confidence slider, grid/list toggle, accuracy badges |
+| Pain Room | `/pain-room` | Live — verified losses, structured breakdowns, anonymous post toggle |
+| Intents | `/intents` | Live — pre-trade vote validation (VALID/SKIP), live vote bars, tabs |
 | Copy Trading | `/copy` | Live — follow traders, set risk limits |
 | Analytics | `/analytics` | Live — crowd positions, whale activity (mocked) |
 | Traders | `/traders` | Live — directory + search |
@@ -74,13 +76,17 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 ## DB Schema Tables
 
 - `traders` — profiles, rep score, tier, PnL, win rate
-- `trades` — closed trades with PnL, verification flag
+- `trades` — closed trades with PnL, txHash (on-chain verification), isOnChainVerified
 - `signals` — open/hit/stopped signals with confidence
 - `copy_configs` — copy trading relationships
-- `pain_rooms` — verified loss posts (Pain Room feature)
+- `pain_rooms` — verified loss posts (Pain Room feature), isAnonymous flag
 - `breakdowns` — structured community responses to pain rooms
   - `what_failed` enum: `entry_timing | thesis | sizing | risk_management | exit_timing | leverage`
   - `signal_status` enum: `open | hit | stopped`
+- `trade_intents` — pre-trade setups posted for community validation (Phase 4)
+  - `status` enum: `open | closed_hit | closed_missed`
+- `intent_votes` — voter records per intent (vote: `valid | invalid`)
+- `rep_event_type` includes: `validation_correct | validation_wrong` (fires on intent resolve)
 
 ---
 
@@ -109,9 +115,9 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
 ### The 5 Emotional Pillars (Product Vision)
 
-1. **Pain Room** — verified losses with structured community breakdowns ✅ BUILT
-2. **Trade Intent Validation** — pre-trade setup voting (live votes, community pressure)
-3. **Verified Win/Loss posts** — with Sodex hash + SoSoValue chart embeds
+1. **Pain Room** — verified losses with structured community breakdowns ✅ BUILT + anonymous post toggle ✅
+2. **Trade Intent Validation** — pre-trade setup voting (live votes, community pressure) ✅ BUILT
+3. **Verified Win/Loss posts** — with txHash on-chain verification ✅ BUILT (Sodex hash + SoSoValue chart embeds pending)
 4. **Market Vibe** — AI-generated hourly emotional market narrative
 5. **Reputation as Identity** — multi-dimensional rep (win rate + signal accuracy + validation accuracy + mentor score + streak)
 

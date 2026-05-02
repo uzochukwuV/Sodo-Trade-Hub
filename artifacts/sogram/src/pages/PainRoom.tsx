@@ -5,6 +5,7 @@ import {
   useLikePainRoom,
   useLikeBreakdown,
   useResolveBreakdown,
+  useCreatePainRoom,
 } from "@workspace/api-client-react";
 import type { PainRoom, BreakdownFull, AddBreakdownBody } from "@workspace/api-client-react";
 
@@ -34,7 +35,7 @@ const WHAT_FAILED_OPTIONS = [
   { value: "leverage", label: "Leverage" },
 ];
 
-const MY_TRADER_ID = 1;
+const MY_TRADER_ID = 17;
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -453,8 +454,182 @@ function PainRoomCard({ pr, onRefetch }: { pr: PainRoom; onRefetch: () => void }
   );
 }
 
+function PostLossForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: () => void }) {
+  const { mutateAsync, isPending } = useCreatePainRoom();
+  const [asset, setAsset] = useState("BTC/USDT");
+  const [side, setSide] = useState<"LONG" | "SHORT">("LONG");
+  const [entryPrice, setEntryPrice] = useState("");
+  const [exitPrice, setExitPrice] = useState("");
+  const [leverage, setLeverage] = useState("1");
+  const [positionSize, setPositionSize] = useState("");
+  const [comment, setComment] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const pnlUsd = entryPrice && exitPrice && positionSize
+    ? (
+        side === "LONG"
+          ? ((Number(exitPrice) - Number(entryPrice)) / Number(entryPrice)) * Number(positionSize) * Number(leverage)
+          : ((Number(entryPrice) - Number(exitPrice)) / Number(entryPrice)) * Number(positionSize) * Number(leverage)
+      ).toFixed(2)
+    : "";
+  const pnlPct = entryPrice && exitPrice
+    ? (
+        side === "LONG"
+          ? ((Number(exitPrice) - Number(entryPrice)) / Number(entryPrice)) * 100 * Number(leverage)
+          : ((Number(entryPrice) - Number(exitPrice)) / Number(entryPrice)) * 100 * Number(leverage)
+      ).toFixed(4)
+    : "";
+
+  const isValid = asset && entryPrice && exitPrice && positionSize && Number(pnlUsd) < 0;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValid) return;
+    await mutateAsync({
+      data: {
+        traderId: MY_TRADER_ID,
+        asset,
+        side,
+        entryPrice,
+        exitPrice,
+        pnlUsd,
+        pnlPct,
+        leverage: Number(leverage),
+        positionSize,
+        comment: comment || undefined,
+        isAnonymous,
+      },
+    });
+    onSuccess();
+    onClose();
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "#141414", border: "1px solid #2A2A2A",
+    borderRadius: 4, padding: "8px 10px", color: "#E5E5E5",
+    fontSize: 12, fontFamily: "JetBrains Mono", outline: "none", boxSizing: "border-box",
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 9, letterSpacing: 2, color: "#555", fontWeight: 700, display: "block", marginBottom: 5,
+  };
+
+  return (
+    <div style={{
+      border: "1px solid #2A1A1A", borderTop: "2px solid #FF3B3B",
+      background: "#0A0A0A", padding: 20, marginBottom: 20, borderRadius: 8,
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#FF3B3B", marginBottom: 16 }}>
+        POST YOUR LOSS
+      </div>
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>ASSET</label>
+            <select value={asset} onChange={e => setAsset(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+              {["BTC/USDT","ETH/USDT","SOL/USDT","BNB/USDT","ARB/USDT","AVAX/USDT","OP/USDT"].map(a => (
+                <option key={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>DIRECTION</label>
+            <div style={{ display: "flex", height: 35 }}>
+              {(["LONG","SHORT"] as const).map(s => (
+                <button key={s} type="button" onClick={() => setSide(s)} style={{
+                  flex: 1, border: `1px solid ${side === s ? (s === "LONG" ? "#22C55E" : "#FF3B3B") : "#2A2A2A"}`,
+                  background: side === s ? (s === "LONG" ? "#22C55E15" : "#FF3B3B15") : "none",
+                  color: side === s ? (s === "LONG" ? "#22C55E" : "#FF3B3B") : "#555",
+                  fontSize: 11, fontWeight: 700, letterSpacing: 1, cursor: "pointer", fontFamily: "DM Sans",
+                }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>ENTRY PRICE</label>
+            <input type="number" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} placeholder="0.00" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>EXIT PRICE</label>
+            <input type="number" value={exitPrice} onChange={e => setExitPrice(e.target.value)} placeholder="0.00" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>POSITION SIZE ($)</label>
+            <input type="number" value={positionSize} onChange={e => setPositionSize(e.target.value)} placeholder="0" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>LEVERAGE</label>
+            <input type="number" min="1" max="100" value={leverage} onChange={e => setLeverage(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        {pnlUsd && (
+          <div style={{
+            padding: "8px 12px", marginBottom: 12, borderRadius: 4,
+            background: Number(pnlUsd) < 0 ? "#FF3B3B12" : "#22C55E12",
+            border: `1px solid ${Number(pnlUsd) < 0 ? "#FF3B3B30" : "#22C55E30"}`,
+            color: Number(pnlUsd) < 0 ? "#FF3B3B" : "#22C55E",
+            fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 700,
+          }}>
+            P&L: {Number(pnlUsd) >= 0 ? "+" : ""}{Number(pnlUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })} ({Number(pnlPct).toFixed(2)}%)
+          </div>
+        )}
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelStyle}>WHAT HAPPENED (OPTIONAL)</label>
+          <textarea value={comment} onChange={e => setComment(e.target.value)}
+            placeholder="Be honest. What did you miss? What were you thinking?"
+            rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
+          />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}
+          onClick={() => setIsAnonymous(a => !a)}
+        >
+          <div style={{
+            width: 18, height: 18, border: `2px solid ${isAnonymous ? "#FF3B3B" : "#2A2A2A"}`,
+            borderRadius: 3, background: isAnonymous ? "#FF3B3B18" : "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.15s",
+          }}>
+            {isAnonymous && <span style={{ color: "#FF3B3B", fontSize: 12, fontWeight: 900 }}>✓</span>}
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: isAnonymous ? "#FF3B3B" : "#888", fontFamily: "DM Sans" }}>
+              Post anonymously
+            </div>
+            <div style={{ fontSize: 10, color: "#444", fontFamily: "DM Sans" }}>
+              Your username and rep score will be hidden
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="submit" disabled={!isValid || isPending} style={{
+            flex: 1, padding: "9px 0", background: isValid ? "#FF3B3B" : "#2A1A1A",
+            border: "none", borderRadius: 4, color: isValid ? "#fff" : "#555",
+            fontSize: 11, fontWeight: 700, letterSpacing: 2,
+            cursor: isValid && !isPending ? "pointer" : "not-allowed", fontFamily: "DM Sans",
+          }}>
+            {isPending ? "SUBMITTING..." : "POST TO PAIN ROOM"}
+          </button>
+          <button type="button" onClick={onClose} style={{
+            padding: "9px 16px", background: "none", border: "1px solid #2A2A2A",
+            borderRadius: 4, color: "#666", fontSize: 11, fontWeight: 700,
+            letterSpacing: 1, cursor: "pointer", fontFamily: "DM Sans",
+          }}>
+            CANCEL
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function PainRoomPage() {
   const { data, isLoading, refetch } = useListPainRooms();
+  const [showPostForm, setShowPostForm] = useState(false);
 
   const painRooms = data?.painRooms ?? [];
   const totalLost = painRooms.reduce((sum, pr) => sum + Math.abs(parseFloat(pr.pnlUsd)), 0);
@@ -477,16 +652,23 @@ export default function PainRoomPage() {
               Verified losses. Structured breakdowns. You learn more from losses than from wins.
             </p>
           </div>
-          <button style={{
-            padding: "8px 18px", background: "#FF3B3B1A",
-            border: "1px solid #FF3B3B44", borderRadius: 4,
-            color: "#FF3B3B", fontSize: 10, fontWeight: 700,
-            letterSpacing: 2, cursor: "pointer", fontFamily: "DM Sans",
-          }}>
-            + POST LOSS
+          <button
+            onClick={() => setShowPostForm(f => !f)}
+            style={{
+              padding: "8px 18px", background: showPostForm ? "#FF3B3B30" : "#FF3B3B1A",
+              border: "1px solid #FF3B3B44", borderRadius: 4,
+              color: "#FF3B3B", fontSize: 10, fontWeight: 700,
+              letterSpacing: 2, cursor: "pointer", fontFamily: "DM Sans",
+            }}>
+            {showPostForm ? "× CANCEL" : "+ POST LOSS"}
           </button>
         </div>
       </div>
+
+      {/* Post Loss Form */}
+      {showPostForm && (
+        <PostLossForm onSuccess={refetch} onClose={() => setShowPostForm(false)} />
+      )}
 
       {/* Stats bar */}
       <div style={{

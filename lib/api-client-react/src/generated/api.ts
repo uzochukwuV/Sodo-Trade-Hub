@@ -21,6 +21,7 @@ import type {
   AnalyticsSummary,
   BreakdownFull,
   CopyConfig,
+  CreateIntentBody,
   CreatePainRoomBody,
   CreateSignalBody,
   CreateTradeBody,
@@ -40,6 +41,8 @@ import type {
   LikeTrade200,
   ListCopyConfigs200,
   ListCopyConfigsParams,
+  ListIntentsParams,
+  ListIntentsResponse,
   ListPainRooms200,
   ListPainRoomsParams,
   ListSignals200,
@@ -50,6 +53,7 @@ import type {
   PainRoom,
   ReputationBreakdown,
   ResolveBreakdown200,
+  ResolveIntentBody,
   ResolveSignal200,
   ResolveSignalBody,
   SignalFull,
@@ -57,6 +61,8 @@ import type {
   Trader,
   TraderProfile,
   UpsertCopyConfigBody,
+  VoteIntentBody,
+  VoteIntentResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2153,6 +2159,360 @@ export function useGetWhaleActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List trade intents (pre-trade setups for validation)
+ */
+export const getListIntentsUrl = (params?: ListIntentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/intents?${stringifiedParams}`
+    : `/api/intents`;
+};
+
+export const listIntents = async (
+  params?: ListIntentsParams,
+  options?: RequestInit,
+): Promise<ListIntentsResponse> => {
+  return customFetch<ListIntentsResponse>(getListIntentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListIntentsQueryKey = (params?: ListIntentsParams) => {
+  return [`/api/intents`, ...(params ? [params] : [])] as const;
+};
+
+export const getListIntentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listIntents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListIntentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listIntents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListIntentsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listIntents>>> = ({
+    signal,
+  }) => listIntents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listIntents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListIntentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listIntents>>
+>;
+export type ListIntentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List trade intents (pre-trade setups for validation)
+ */
+
+export function useListIntents<
+  TData = Awaited<ReturnType<typeof listIntents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListIntentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listIntents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListIntentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Post a new trade intent (pre-trade setup for community validation)
+ */
+export const getCreateIntentUrl = () => {
+  return `/api/intents`;
+};
+
+export const createIntent = async (
+  createIntentBody: CreateIntentBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getCreateIntentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createIntentBody),
+  });
+};
+
+export const getCreateIntentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createIntent>>,
+    TError,
+    { data: BodyType<CreateIntentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createIntent>>,
+  TError,
+  { data: BodyType<CreateIntentBody> },
+  TContext
+> => {
+  const mutationKey = ["createIntent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createIntent>>,
+    { data: BodyType<CreateIntentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createIntent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateIntentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createIntent>>
+>;
+export type CreateIntentMutationBody = BodyType<CreateIntentBody>;
+export type CreateIntentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Post a new trade intent (pre-trade setup for community validation)
+ */
+export const useCreateIntent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createIntent>>,
+    TError,
+    { data: BodyType<CreateIntentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createIntent>>,
+  TError,
+  { data: BodyType<CreateIntentBody> },
+  TContext
+> => {
+  return useMutation(getCreateIntentMutationOptions(options));
+};
+
+/**
+ * @summary Vote valid or invalid on a trade intent
+ */
+export const getVoteIntentUrl = (intentId: number) => {
+  return `/api/intents/${intentId}/vote`;
+};
+
+export const voteIntent = async (
+  intentId: number,
+  voteIntentBody: VoteIntentBody,
+  options?: RequestInit,
+): Promise<VoteIntentResponse> => {
+  return customFetch<VoteIntentResponse>(getVoteIntentUrl(intentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(voteIntentBody),
+  });
+};
+
+export const getVoteIntentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof voteIntent>>,
+    TError,
+    { intentId: number; data: BodyType<VoteIntentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof voteIntent>>,
+  TError,
+  { intentId: number; data: BodyType<VoteIntentBody> },
+  TContext
+> => {
+  const mutationKey = ["voteIntent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof voteIntent>>,
+    { intentId: number; data: BodyType<VoteIntentBody> }
+  > = (props) => {
+    const { intentId, data } = props ?? {};
+
+    return voteIntent(intentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VoteIntentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof voteIntent>>
+>;
+export type VoteIntentMutationBody = BodyType<VoteIntentBody>;
+export type VoteIntentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Vote valid or invalid on a trade intent
+ */
+export const useVoteIntent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof voteIntent>>,
+    TError,
+    { intentId: number; data: BodyType<VoteIntentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof voteIntent>>,
+  TError,
+  { intentId: number; data: BodyType<VoteIntentBody> },
+  TContext
+> => {
+  return useMutation(getVoteIntentMutationOptions(options));
+};
+
+/**
+ * @summary Resolve an intent as hit or miss, rewarding correct voters
+ */
+export const getResolveIntentUrl = (intentId: number) => {
+  return `/api/intents/${intentId}/resolve`;
+};
+
+export const resolveIntent = async (
+  intentId: number,
+  resolveIntentBody: ResolveIntentBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getResolveIntentUrl(intentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resolveIntentBody),
+  });
+};
+
+export const getResolveIntentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveIntent>>,
+    TError,
+    { intentId: number; data: BodyType<ResolveIntentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resolveIntent>>,
+  TError,
+  { intentId: number; data: BodyType<ResolveIntentBody> },
+  TContext
+> => {
+  const mutationKey = ["resolveIntent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resolveIntent>>,
+    { intentId: number; data: BodyType<ResolveIntentBody> }
+  > = (props) => {
+    const { intentId, data } = props ?? {};
+
+    return resolveIntent(intentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResolveIntentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolveIntent>>
+>;
+export type ResolveIntentMutationBody = BodyType<ResolveIntentBody>;
+export type ResolveIntentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Resolve an intent as hit or miss, rewarding correct voters
+ */
+export const useResolveIntent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveIntent>>,
+    TError,
+    { intentId: number; data: BodyType<ResolveIntentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resolveIntent>>,
+  TError,
+  { intentId: number; data: BodyType<ResolveIntentBody> },
+  TContext
+> => {
+  return useMutation(getResolveIntentMutationOptions(options));
+};
 
 /**
  * @summary Get top traders ranked by 30d PNL

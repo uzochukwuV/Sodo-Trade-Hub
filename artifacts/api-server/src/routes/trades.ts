@@ -6,14 +6,24 @@ import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
 
 const router: IRouter = Router();
 
+const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
+
 router.post("/trades", async (req, res) => {
   const { traderId, asset, side, entryPrice, exitPrice, pnlUsd, pnlPct,
-          positionSize, leverage, isVerified, comment } = req.body;
+          positionSize, leverage, isVerified, comment, txHash } = req.body;
 
   if (!traderId || !asset || !side || entryPrice === undefined || exitPrice === undefined) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
+
+  if (txHash && !TX_HASH_RE.test(String(txHash))) {
+    res.status(400).json({ error: "txHash must be a valid 0x-prefixed 64-char hex string" });
+    return;
+  }
+
+  const validatedTxHash = txHash ? String(txHash) : null;
+  const isOnChainVerified = !!validatedTxHash;
 
   const [trade] = await db.insert(tradesTable).values({
     traderId: Number(traderId),
@@ -26,6 +36,8 @@ router.post("/trades", async (req, res) => {
     positionSize: String(positionSize ?? 0),
     leverage: Number(leverage ?? 1),
     isVerified: Boolean(isVerified ?? false),
+    isOnChainVerified,
+    txHash: validatedTxHash,
     comment: comment ?? null,
   }).returning();
 

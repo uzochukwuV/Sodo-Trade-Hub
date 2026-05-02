@@ -76,14 +76,15 @@ export interface Trade {
   pnlUsd: string;
   pnlPct: string;
   positionSize: string;
-  leverage: string;
-  duration: string;
-  caption: string;
-  tags: string[];
+  leverage: number;
+  isVerified?: boolean;
   isOnChainVerified: boolean;
-  likes: number;
-  copies: number;
-  comments: number;
+  txHash?: string | null;
+  likeCount: number;
+  likes?: number;
+  caption?: string | null;
+  comment?: string | null;
+  closedAt?: string;
   createdAt: string;
 }
 
@@ -144,11 +145,10 @@ export interface CreateTradeBody {
   pnlUsd: string;
   pnlPct: string;
   positionSize: string;
-  leverage: string;
-  duration: string;
-  caption: string;
-  tags?: string[];
-  isOnChainVerified?: boolean;
+  leverage: number;
+  comment?: string;
+  /** Optional 0x-prefixed 64-char hex transaction hash. Sets isOnChainVerified=true when present. */
+  txHash?: string;
 }
 
 export type SignalSide = (typeof SignalSide)[keyof typeof SignalSide];
@@ -236,17 +236,147 @@ export interface CreateSignalBody {
   tags?: string[];
 }
 
+export type TradeIntentSide =
+  (typeof TradeIntentSide)[keyof typeof TradeIntentSide];
+
+export const TradeIntentSide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export type TradeIntentStatus =
+  (typeof TradeIntentStatus)[keyof typeof TradeIntentStatus];
+
+export const TradeIntentStatus = {
+  open: "open",
+  closed_hit: "closed_hit",
+  closed_miss: "closed_miss",
+  expired: "expired",
+} as const;
+
+export interface TradeIntent {
+  id: number;
+  traderId: number;
+  traderUsername: string;
+  traderHandle: string;
+  traderRepScore: number;
+  traderTier: string;
+  traderValidationAccuracy: number;
+  asset: string;
+  side: TradeIntentSide;
+  entryPrice: string;
+  targetPrice: string;
+  stopLoss: string;
+  leverage: number;
+  reasoning: string;
+  votesValid: number;
+  votesInvalid: number;
+  totalVotes: number;
+  validPct: number;
+  status: TradeIntentStatus;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ListIntentsResponse {
+  intents: TradeIntent[];
+  total: number;
+}
+
+export type CreateIntentBodySide =
+  (typeof CreateIntentBodySide)[keyof typeof CreateIntentBodySide];
+
+export const CreateIntentBodySide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export interface CreateIntentBody {
+  traderId: number;
+  asset: string;
+  side: CreateIntentBodySide;
+  entryPrice: string;
+  targetPrice: string;
+  stopLoss: string;
+  leverage?: number;
+  reasoning: string;
+}
+
+export type VoteIntentBodyVote =
+  (typeof VoteIntentBodyVote)[keyof typeof VoteIntentBodyVote];
+
+export const VoteIntentBodyVote = {
+  valid: "valid",
+  invalid: "invalid",
+} as const;
+
+export interface VoteIntentBody {
+  vote: VoteIntentBodyVote;
+  voterId: number;
+}
+
+export interface VoteIntentResponse {
+  ok: boolean;
+  votesValid: number;
+  votesInvalid: number;
+  totalVotes: number;
+  validPct: number;
+}
+
 export type FeedItemType = (typeof FeedItemType)[keyof typeof FeedItemType];
 
 export const FeedItemType = {
   trade: "trade",
   signal: "signal",
+  loss: "loss",
+  whale: "whale",
 } as const;
+
+export interface FeedLoss {
+  id: number;
+  traderId: number;
+  traderUsername?: string;
+  traderHandle?: string;
+  traderRepScore: number;
+  traderTier: string;
+  isAnonymous: boolean;
+  asset: string;
+  side: string;
+  pnlUsd: string;
+  pnlPct: string;
+  leverage: number;
+  comment?: string;
+  breakdownCount: number;
+  isResolved: boolean;
+  createdAt: string;
+}
+
+export type WhalePositionSide =
+  (typeof WhalePositionSide)[keyof typeof WhalePositionSide];
+
+export const WhalePositionSide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export interface WhalePosition {
+  traderUsername: string;
+  traderHandle: string;
+  repScore: number;
+  positionSizeUsd: string;
+  pair: string;
+  side: WhalePositionSide;
+  leverage: string;
+  timeAgo: string;
+  traderId: number;
+}
 
 export interface FeedItem {
   type: FeedItemType;
   trade?: Trade;
   signal?: Signal;
+  loss?: FeedLoss;
+  whale?: WhalePosition;
 }
 
 export interface FeedResponse {
@@ -353,26 +483,6 @@ export interface MarketTicker {
 export interface MarketPrices {
   tickers: MarketTicker[];
   updatedAt: string;
-}
-
-export type WhalePositionSide =
-  (typeof WhalePositionSide)[keyof typeof WhalePositionSide];
-
-export const WhalePositionSide = {
-  LONG: "LONG",
-  SHORT: "SHORT",
-} as const;
-
-export interface WhalePosition {
-  traderUsername: string;
-  traderHandle: string;
-  repScore: number;
-  positionSizeUsd: string;
-  pair: string;
-  side: WhalePositionSide;
-  leverage: string;
-  timeAgo: string;
-  traderId: number;
 }
 
 export interface LeaderboardEntry {
@@ -501,6 +611,8 @@ export const GetFeedFilter = {
   all: "all",
   wins: "wins",
   signals: "signals",
+  losses: "losses",
+  whales: "whales",
 } as const;
 
 export type ListTradersParams = {
@@ -610,6 +722,45 @@ export type LikeBreakdown200 = {
 
 export type GetWhaleActivity200 = {
   whales: WhalePosition[];
+};
+
+export type ListIntentsParams = {
+  status?: ListIntentsStatus;
+  asset?: string;
+  side?: ListIntentsSide;
+  traderId?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListIntentsStatus =
+  (typeof ListIntentsStatus)[keyof typeof ListIntentsStatus];
+
+export const ListIntentsStatus = {
+  open: "open",
+  closed_hit: "closed_hit",
+  closed_miss: "closed_miss",
+  expired: "expired",
+} as const;
+
+export type ListIntentsSide =
+  (typeof ListIntentsSide)[keyof typeof ListIntentsSide];
+
+export const ListIntentsSide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export type ResolveIntentBodyOutcome =
+  (typeof ResolveIntentBodyOutcome)[keyof typeof ResolveIntentBodyOutcome];
+
+export const ResolveIntentBodyOutcome = {
+  hit: "hit",
+  miss: "miss",
+} as const;
+
+export type ResolveIntentBody = {
+  outcome: ResolveIntentBodyOutcome;
 };
 
 export type GetLeaderboardParams = {
