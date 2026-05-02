@@ -2,6 +2,7 @@ import { pgTable, serial, integer, text, numeric, boolean, timestamp, pgEnum } f
 import { tradersTable } from "./traders";
 
 export const signalSideEnum = pgEnum("signal_side", ["LONG", "SHORT"]);
+export const signalStatusEnum = pgEnum("signal_status", ["open", "hit", "stopped"]);
 
 export const signalsTable = pgTable("signals", {
   id: serial("id").primaryKey(),
@@ -13,6 +14,7 @@ export const signalsTable = pgTable("signals", {
   stopLoss: numeric("stop_loss", { precision: 18, scale: 8 }).notNull(),
   confidence: integer("confidence").notNull().default(70),
   reasoning: text("reasoning"),
+  status: signalStatusEnum("status").notNull().default("open"),
   isActive: boolean("is_active").notNull().default(true),
   likeCount: integer("like_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),

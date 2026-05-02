@@ -75,11 +75,11 @@ export const GetFeedResponse = zod.object({
           rrRatio: zod.string(),
           confidence: zod.number(),
           caption: zod.string(),
-          tags: zod.array(zod.string()),
-          likes: zod.number(),
-          followers: zod.number(),
-          comments: zod.number(),
-          createdAt: zod.string(),
+          tags: zod.array(zod.string()).optional(),
+          likes: zod.number().optional(),
+          followers: zod.number().optional(),
+          comments: zod.number().optional(),
+          createdAt: zod.string().optional(),
         })
         .optional(),
     }),
@@ -260,6 +260,47 @@ export const LikeTradeParams = zod.object({
 export const LikeTradeResponse = zod.object({
   likes: zod.number(),
   liked: zod.boolean(),
+});
+
+/**
+ * @summary List trading signals with optional filters
+ */
+export const listSignalsQueryLimitDefault = 20;
+export const listSignalsQueryOffsetDefault = 0;
+
+export const ListSignalsQueryParams = zod.object({
+  asset: zod.coerce.string().optional(),
+  side: zod.enum(["LONG", "SHORT"]).optional(),
+  status: zod.enum(["open", "hit", "stopped"]).optional(),
+  minConfidence: zod.coerce.number().optional(),
+  traderId: zod.coerce.number().optional(),
+  limit: zod.coerce.number().default(listSignalsQueryLimitDefault),
+  offset: zod.coerce.number().default(listSignalsQueryOffsetDefault),
+});
+
+export const ListSignalsResponse = zod.object({
+  signals: zod.array(
+    zod.object({
+      id: zod.number(),
+      traderId: zod.number(),
+      traderUsername: zod.string(),
+      traderHandle: zod.string(),
+      traderRepScore: zod.number(),
+      traderTier: zod.string(),
+      asset: zod.string(),
+      side: zod.enum(["LONG", "SHORT"]),
+      entryPrice: zod.string(),
+      targetPrice: zod.string(),
+      stopLoss: zod.string(),
+      confidence: zod.number(),
+      reasoning: zod.string().optional(),
+      status: zod.enum(["open", "hit", "stopped"]),
+      likeCount: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.string(),
+    }),
+  ),
+  total: zod.number(),
 });
 
 /**

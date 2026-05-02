@@ -131,10 +131,47 @@ export interface Signal {
   rrRatio: string;
   confidence: number;
   caption: string;
-  tags: string[];
-  likes: number;
-  followers: number;
-  comments: number;
+  tags?: string[];
+  likes?: number;
+  followers?: number;
+  comments?: number;
+  createdAt?: string;
+}
+
+export type SignalFullSide =
+  (typeof SignalFullSide)[keyof typeof SignalFullSide];
+
+export const SignalFullSide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export type SignalFullStatus =
+  (typeof SignalFullStatus)[keyof typeof SignalFullStatus];
+
+export const SignalFullStatus = {
+  open: "open",
+  hit: "hit",
+  stopped: "stopped",
+} as const;
+
+export interface SignalFull {
+  id: number;
+  traderId: number;
+  traderUsername: string;
+  traderHandle: string;
+  traderRepScore: number;
+  traderTier: string;
+  asset: string;
+  side: SignalFullSide;
+  entryPrice: string;
+  targetPrice: string;
+  stopLoss: string;
+  confidence: number;
+  reasoning?: string;
+  status: SignalFullStatus;
+  likeCount: number;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -329,6 +366,38 @@ export type GetTraderTrades200 = {
 export type LikeTrade200 = {
   likes: number;
   liked: boolean;
+};
+
+export type ListSignalsParams = {
+  asset?: string;
+  side?: ListSignalsSide;
+  status?: ListSignalsStatus;
+  minConfidence?: number;
+  traderId?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListSignalsSide =
+  (typeof ListSignalsSide)[keyof typeof ListSignalsSide];
+
+export const ListSignalsSide = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+} as const;
+
+export type ListSignalsStatus =
+  (typeof ListSignalsStatus)[keyof typeof ListSignalsStatus];
+
+export const ListSignalsStatus = {
+  open: "open",
+  hit: "hit",
+  stopped: "stopped",
+} as const;
+
+export type ListSignals200 = {
+  signals: SignalFull[];
+  total: number;
 };
 
 export type LikeSignal200 = {

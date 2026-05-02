@@ -211,6 +211,58 @@ paths:
                 required: [likes, liked]
 
   /signals:
+    get:
+      operationId: listSignals
+      tags: [signals]
+      summary: List trading signals with optional filters
+      parameters:
+        - name: asset
+          in: query
+          schema:
+            type: string
+        - name: side
+          in: query
+          schema:
+            type: string
+            enum: [LONG, SHORT]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, hit, stopped]
+        - name: minConfidence
+          in: query
+          schema:
+            type: integer
+        - name: traderId
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of signals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SignalFull"
+                  total:
+                    type: integer
+                required: [signals, total]
     post:
       operationId: createSignal
       tags: [signals]
@@ -227,7 +279,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Signal"
+                $ref: "#/components/schemas/SignalFull"
 
   /signals/{signalId}/like:
     post:
@@ -640,6 +692,63 @@ components:
         - rrRatio
         - confidence
         - caption
+
+    SignalFull:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: number
+        traderTier:
+          type: string
+        asset:
+          type: string
+        side:
+          type: string
+          enum: [LONG, SHORT]
+        entryPrice:
+          type: string
+        targetPrice:
+          type: string
+        stopLoss:
+          type: string
+        confidence:
+          type: integer
+        reasoning:
+          type: string
+        status:
+          type: string
+          enum: [open, hit, stopped]
+        likeCount:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - traderId
+        - traderUsername
+        - traderHandle
+        - traderRepScore
+        - traderTier
+        - asset
+        - side
+        - entryPrice
+        - targetPrice
+        - stopLoss
+        - confidence
+        - status
+        - likeCount
+        - isActive
+        - createdAt
         - tags
         - likes
         - followers

@@ -35,10 +35,12 @@ import type {
   LikeTrade200,
   ListCopyConfigs200,
   ListCopyConfigsParams,
+  ListSignals200,
+  ListSignalsParams,
   ListTraders200,
   ListTradersParams,
   MarketPrices,
-  Signal,
+  SignalFull,
   Trade,
   Trader,
   TraderProfile,
@@ -770,6 +772,100 @@ export const useLikeTrade = <
 };
 
 /**
+ * @summary List trading signals with optional filters
+ */
+export const getListSignalsUrl = (params?: ListSignalsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/signals?${stringifiedParams}`
+    : `/api/signals`;
+};
+
+export const listSignals = async (
+  params?: ListSignalsParams,
+  options?: RequestInit,
+): Promise<ListSignals200> => {
+  return customFetch<ListSignals200>(getListSignalsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSignalsQueryKey = (params?: ListSignalsParams) => {
+  return [`/api/signals`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSignalsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSignals>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSignalsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSignals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSignalsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSignals>>> = ({
+    signal,
+  }) => listSignals(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSignals>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSignalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSignals>>
+>;
+export type ListSignalsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List trading signals with optional filters
+ */
+
+export function useListSignals<
+  TData = Awaited<ReturnType<typeof listSignals>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSignalsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSignals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSignalsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Post a trading signal
  */
 export const getCreateSignalUrl = () => {
@@ -779,8 +875,8 @@ export const getCreateSignalUrl = () => {
 export const createSignal = async (
   createSignalBody: CreateSignalBody,
   options?: RequestInit,
-): Promise<Signal> => {
-  return customFetch<Signal>(getCreateSignalUrl(), {
+): Promise<SignalFull> => {
+  return customFetch<SignalFull>(getCreateSignalUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
