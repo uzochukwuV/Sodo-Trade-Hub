@@ -40,7 +40,7 @@ function fmtPnl(usd: string) {
   return "$" + n.toFixed(0);
 }
 
-const MY_COPIER_ID = 999;
+const MY_COPIER_ID = 37;
 
 export default function CopyTrading() {
   const { toast } = useToast();

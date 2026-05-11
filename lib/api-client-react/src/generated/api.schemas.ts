@@ -535,6 +535,66 @@ export interface MarketVibeResponse {
   news: NewsItem[];
 }
 
+export interface FollowStatus {
+  following: boolean;
+  followerCount: number;
+}
+
+export interface TraderFollowStats {
+  traderId: number;
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+}
+
+export type CommentPostType =
+  (typeof CommentPostType)[keyof typeof CommentPostType];
+
+export const CommentPostType = {
+  trade: "trade",
+  signal: "signal",
+  pain_room: "pain_room",
+  intent: "intent",
+} as const;
+
+export interface Comment {
+  id: number;
+  traderId: number;
+  traderUsername: string;
+  traderHandle: string;
+  traderRepScore: number;
+  postType: CommentPostType;
+  postId: number;
+  content: string;
+  likeCount: number;
+  createdAt: string;
+}
+
+export interface CreateCommentBody {
+  traderId: number;
+  content: string;
+}
+
+export interface WhaleWalletEntry {
+  id: number;
+  address: string;
+  label?: string | null;
+  txCount: number;
+  contractsInteracted?: string | null;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
+  isProfiled: boolean;
+  profiledTraderId?: number | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface ValueChainScanResponse {
+  scanned: number;
+  newFound: number;
+  wallets: WhaleWalletEntry[];
+}
+
 export type SodexFillSide = (typeof SodexFillSide)[keyof typeof SodexFillSide];
 
 export const SodexFillSide = {
@@ -728,6 +788,44 @@ export type GetTraderTradesParams = {
 
 export type GetTraderTrades200 = {
   trades: Trade[];
+};
+
+export type FollowTraderBody = {
+  followerId: number;
+};
+
+export type UnfollowTraderBody = {
+  followerId: number;
+};
+
+export type GetTraderFollowersParams = {
+  /**
+   * Optional viewer ID to check if they follow this trader
+   */
+  followerId?: number;
+};
+
+export type GetCommentsParams = {
+  limit?: number;
+};
+
+export type GetComments200 = {
+  comments: Comment[];
+  total: number;
+};
+
+export type GetWhaleWalletsParams = {
+  limit?: number;
+};
+
+export type GetWhaleWallets200 = {
+  wallets: WhaleWalletEntry[];
+};
+
+export type ScanValueChainBody = {
+  /** Optional specific address to scan. If omitted, scans recent Sodex contract interactions. */
+  address?: string;
+  label?: string;
 };
 
 export type LikeTrade200 = {

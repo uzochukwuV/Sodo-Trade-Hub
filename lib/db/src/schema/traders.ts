@@ -25,6 +25,7 @@ export const tradersTable = pgTable("traders", {
   signalsStopped: integer("signals_stopped").notNull().default(0),
   totalBreakdownsGiven: integer("total_breakdowns_given").notNull().default(0),
   totalBreakdownsHelpful: integer("total_breakdowns_helpful").notNull().default(0),
+  walletAddress: text("wallet_address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

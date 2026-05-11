@@ -341,6 +341,164 @@ export const GetTraderTradesResponse = zod.object({
 });
 
 /**
+ * @summary Follow a trader
+ */
+export const FollowTraderParams = zod.object({
+  traderId: zod.coerce.number(),
+});
+
+export const FollowTraderBody = zod.object({
+  followerId: zod.number(),
+});
+
+export const FollowTraderResponse = zod.object({
+  following: zod.boolean(),
+  followerCount: zod.number(),
+});
+
+/**
+ * @summary Unfollow a trader
+ */
+export const UnfollowTraderParams = zod.object({
+  traderId: zod.coerce.number(),
+});
+
+export const UnfollowTraderBody = zod.object({
+  followerId: zod.number(),
+});
+
+export const UnfollowTraderResponse = zod.object({
+  following: zod.boolean(),
+  followerCount: zod.number(),
+});
+
+/**
+ * @summary Get a trader's followers and following counts
+ */
+export const GetTraderFollowersParams = zod.object({
+  traderId: zod.coerce.number(),
+});
+
+export const GetTraderFollowersQueryParams = zod.object({
+  followerId: zod.coerce
+    .number()
+    .optional()
+    .describe("Optional viewer ID to check if they follow this trader"),
+});
+
+export const GetTraderFollowersResponse = zod.object({
+  traderId: zod.number(),
+  followerCount: zod.number(),
+  followingCount: zod.number(),
+  isFollowing: zod.boolean(),
+});
+
+/**
+ * @summary Get comments for a post
+ */
+export const GetCommentsParams = zod.object({
+  postType: zod.enum(["trade", "signal", "pain_room", "intent"]),
+  postId: zod.coerce.number(),
+});
+
+export const getCommentsQueryLimitDefault = 20;
+
+export const GetCommentsQueryParams = zod.object({
+  limit: zod.coerce.number().default(getCommentsQueryLimitDefault),
+});
+
+export const GetCommentsResponse = zod.object({
+  comments: zod.array(
+    zod.object({
+      id: zod.number(),
+      traderId: zod.number(),
+      traderUsername: zod.string(),
+      traderHandle: zod.string(),
+      traderRepScore: zod.number(),
+      postType: zod.enum(["trade", "signal", "pain_room", "intent"]),
+      postId: zod.number(),
+      content: zod.string(),
+      likeCount: zod.number(),
+      createdAt: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Add a comment to a post
+ */
+export const AddCommentParams = zod.object({
+  postType: zod.enum(["trade", "signal", "pain_room", "intent"]),
+  postId: zod.coerce.number(),
+});
+
+export const AddCommentBody = zod.object({
+  traderId: zod.number(),
+  content: zod.string(),
+});
+
+/**
+ * @summary Get discovered whale wallets from ValueChain
+ */
+export const getWhaleWalletsQueryLimitDefault = 20;
+
+export const GetWhaleWalletsQueryParams = zod.object({
+  limit: zod.coerce.number().default(getWhaleWalletsQueryLimitDefault),
+});
+
+export const GetWhaleWalletsResponse = zod.object({
+  wallets: zod.array(
+    zod.object({
+      id: zod.number(),
+      address: zod.string(),
+      label: zod.string().nullish(),
+      txCount: zod.number(),
+      contractsInteracted: zod.string().nullish(),
+      firstSeenAt: zod.string().nullish(),
+      lastSeenAt: zod.string().nullish(),
+      isProfiled: zod.boolean(),
+      profiledTraderId: zod.number().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Scan ValueChain for new whale wallets interacting with Sodex contracts
+ */
+export const ScanValueChainBody = zod.object({
+  address: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional specific address to scan. If omitted, scans recent Sodex contract interactions.",
+    ),
+  label: zod.string().optional(),
+});
+
+export const ScanValueChainResponse = zod.object({
+  scanned: zod.number(),
+  newFound: zod.number(),
+  wallets: zod.array(
+    zod.object({
+      id: zod.number(),
+      address: zod.string(),
+      label: zod.string().nullish(),
+      txCount: zod.number(),
+      contractsInteracted: zod.string().nullish(),
+      firstSeenAt: zod.string().nullish(),
+      lastSeenAt: zod.string().nullish(),
+      isProfiled: zod.boolean(),
+      profiledTraderId: zod.number().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Post a verified trade
  */
 export const CreateTradeBody = zod.object({

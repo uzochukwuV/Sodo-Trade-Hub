@@ -20,7 +20,9 @@ import type {
   AddBreakdownBody,
   AnalyticsSummary,
   BreakdownFull,
+  Comment,
   CopyConfig,
+  CreateCommentBody,
   CreateIntentBody,
   CreatePainRoomBody,
   CreateSignalBody,
@@ -28,16 +30,23 @@ import type {
   CreateTraderBody,
   ErrorResponse,
   FeedResponse,
+  FollowStatus,
+  FollowTraderBody,
   GetAnalyticsMarket200,
+  GetComments200,
+  GetCommentsParams,
   GetFeedParams,
   GetLeaderboard200,
   GetLeaderboardParams,
   GetMarketFillsParams,
   GetMarketKlinesParams,
   GetMarketNewsParams,
+  GetTraderFollowersParams,
   GetTraderTrades200,
   GetTraderTradesParams,
   GetWhaleActivity200,
+  GetWhaleWallets200,
+  GetWhaleWalletsParams,
   HealthStatus,
   LikeBreakdown200,
   LikePainRoom200,
@@ -64,11 +73,15 @@ import type {
   ResolveIntentBody,
   ResolveSignal200,
   ResolveSignalBody,
+  ScanValueChainBody,
   SignalFull,
   Trade,
   Trader,
+  TraderFollowStats,
   TraderProfile,
+  UnfollowTraderBody,
   UpsertCopyConfigBody,
+  ValueChainScanResponse,
   VerifySodexTradeBody,
   VerifySodexTradeResponse,
   VoteIntentBody,
@@ -717,6 +730,716 @@ export function useGetTraderTrades<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Follow a trader
+ */
+export const getFollowTraderUrl = (traderId: number) => {
+  return `/api/traders/${traderId}/follow`;
+};
+
+export const followTrader = async (
+  traderId: number,
+  followTraderBody: FollowTraderBody,
+  options?: RequestInit,
+): Promise<FollowStatus> => {
+  return customFetch<FollowStatus>(getFollowTraderUrl(traderId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(followTraderBody),
+  });
+};
+
+export const getFollowTraderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof followTrader>>,
+    TError,
+    { traderId: number; data: BodyType<FollowTraderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof followTrader>>,
+  TError,
+  { traderId: number; data: BodyType<FollowTraderBody> },
+  TContext
+> => {
+  const mutationKey = ["followTrader"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof followTrader>>,
+    { traderId: number; data: BodyType<FollowTraderBody> }
+  > = (props) => {
+    const { traderId, data } = props ?? {};
+
+    return followTrader(traderId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FollowTraderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof followTrader>>
+>;
+export type FollowTraderMutationBody = BodyType<FollowTraderBody>;
+export type FollowTraderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Follow a trader
+ */
+export const useFollowTrader = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof followTrader>>,
+    TError,
+    { traderId: number; data: BodyType<FollowTraderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof followTrader>>,
+  TError,
+  { traderId: number; data: BodyType<FollowTraderBody> },
+  TContext
+> => {
+  return useMutation(getFollowTraderMutationOptions(options));
+};
+
+/**
+ * @summary Unfollow a trader
+ */
+export const getUnfollowTraderUrl = (traderId: number) => {
+  return `/api/traders/${traderId}/follow`;
+};
+
+export const unfollowTrader = async (
+  traderId: number,
+  unfollowTraderBody: UnfollowTraderBody,
+  options?: RequestInit,
+): Promise<FollowStatus> => {
+  return customFetch<FollowStatus>(getUnfollowTraderUrl(traderId), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(unfollowTraderBody),
+  });
+};
+
+export const getUnfollowTraderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfollowTrader>>,
+    TError,
+    { traderId: number; data: BodyType<UnfollowTraderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unfollowTrader>>,
+  TError,
+  { traderId: number; data: BodyType<UnfollowTraderBody> },
+  TContext
+> => {
+  const mutationKey = ["unfollowTrader"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unfollowTrader>>,
+    { traderId: number; data: BodyType<UnfollowTraderBody> }
+  > = (props) => {
+    const { traderId, data } = props ?? {};
+
+    return unfollowTrader(traderId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnfollowTraderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unfollowTrader>>
+>;
+export type UnfollowTraderMutationBody = BodyType<UnfollowTraderBody>;
+export type UnfollowTraderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unfollow a trader
+ */
+export const useUnfollowTrader = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfollowTrader>>,
+    TError,
+    { traderId: number; data: BodyType<UnfollowTraderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unfollowTrader>>,
+  TError,
+  { traderId: number; data: BodyType<UnfollowTraderBody> },
+  TContext
+> => {
+  return useMutation(getUnfollowTraderMutationOptions(options));
+};
+
+/**
+ * @summary Get a trader's followers and following counts
+ */
+export const getGetTraderFollowersUrl = (
+  traderId: number,
+  params?: GetTraderFollowersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/traders/${traderId}/followers?${stringifiedParams}`
+    : `/api/traders/${traderId}/followers`;
+};
+
+export const getTraderFollowers = async (
+  traderId: number,
+  params?: GetTraderFollowersParams,
+  options?: RequestInit,
+): Promise<TraderFollowStats> => {
+  return customFetch<TraderFollowStats>(
+    getGetTraderFollowersUrl(traderId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTraderFollowersQueryKey = (
+  traderId: number,
+  params?: GetTraderFollowersParams,
+) => {
+  return [
+    `/api/traders/${traderId}/followers`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetTraderFollowersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTraderFollowers>>,
+  TError = ErrorType<unknown>,
+>(
+  traderId: number,
+  params?: GetTraderFollowersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTraderFollowers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTraderFollowersQueryKey(traderId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTraderFollowers>>
+  > = ({ signal }) =>
+    getTraderFollowers(traderId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!traderId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTraderFollowers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTraderFollowersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTraderFollowers>>
+>;
+export type GetTraderFollowersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a trader's followers and following counts
+ */
+
+export function useGetTraderFollowers<
+  TData = Awaited<ReturnType<typeof getTraderFollowers>>,
+  TError = ErrorType<unknown>,
+>(
+  traderId: number,
+  params?: GetTraderFollowersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTraderFollowers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTraderFollowersQueryOptions(
+    traderId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get comments for a post
+ */
+export const getGetCommentsUrl = (
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+  params?: GetCommentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/comments/${postType}/${postId}?${stringifiedParams}`
+    : `/api/comments/${postType}/${postId}`;
+};
+
+export const getComments = async (
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+  params?: GetCommentsParams,
+  options?: RequestInit,
+): Promise<GetComments200> => {
+  return customFetch<GetComments200>(
+    getGetCommentsUrl(postType, postId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCommentsQueryKey = (
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+  params?: GetCommentsParams,
+) => {
+  return [
+    `/api/comments/${postType}/${postId}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getComments>>,
+  TError = ErrorType<unknown>,
+>(
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+  params?: GetCommentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCommentsQueryKey(postType, postId, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getComments>>> = ({
+    signal,
+  }) => getComments(postType, postId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(postType && postId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComments>>
+>;
+export type GetCommentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get comments for a post
+ */
+
+export function useGetComments<
+  TData = Awaited<ReturnType<typeof getComments>>,
+  TError = ErrorType<unknown>,
+>(
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+  params?: GetCommentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCommentsQueryOptions(
+    postType,
+    postId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a comment to a post
+ */
+export const getAddCommentUrl = (
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+) => {
+  return `/api/comments/${postType}/${postId}`;
+};
+
+export const addComment = async (
+  postType: "trade" | "signal" | "pain_room" | "intent",
+  postId: number,
+  createCommentBody: CreateCommentBody,
+  options?: RequestInit,
+): Promise<Comment> => {
+  return customFetch<Comment>(getAddCommentUrl(postType, postId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCommentBody),
+  });
+};
+
+export const getAddCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addComment>>,
+    TError,
+    {
+      postType: "trade" | "signal" | "pain_room" | "intent";
+      postId: number;
+      data: BodyType<CreateCommentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addComment>>,
+  TError,
+  {
+    postType: "trade" | "signal" | "pain_room" | "intent";
+    postId: number;
+    data: BodyType<CreateCommentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addComment>>,
+    {
+      postType: "trade" | "signal" | "pain_room" | "intent";
+      postId: number;
+      data: BodyType<CreateCommentBody>;
+    }
+  > = (props) => {
+    const { postType, postId, data } = props ?? {};
+
+    return addComment(postType, postId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addComment>>
+>;
+export type AddCommentMutationBody = BodyType<CreateCommentBody>;
+export type AddCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a comment to a post
+ */
+export const useAddComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addComment>>,
+    TError,
+    {
+      postType: "trade" | "signal" | "pain_room" | "intent";
+      postId: number;
+      data: BodyType<CreateCommentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addComment>>,
+  TError,
+  {
+    postType: "trade" | "signal" | "pain_room" | "intent";
+    postId: number;
+    data: BodyType<CreateCommentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAddCommentMutationOptions(options));
+};
+
+/**
+ * @summary Get discovered whale wallets from ValueChain
+ */
+export const getGetWhaleWalletsUrl = (params?: GetWhaleWalletsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/valuechain/whales?${stringifiedParams}`
+    : `/api/valuechain/whales`;
+};
+
+export const getWhaleWallets = async (
+  params?: GetWhaleWalletsParams,
+  options?: RequestInit,
+): Promise<GetWhaleWallets200> => {
+  return customFetch<GetWhaleWallets200>(getGetWhaleWalletsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWhaleWalletsQueryKey = (params?: GetWhaleWalletsParams) => {
+  return [`/api/valuechain/whales`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetWhaleWalletsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWhaleWallets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetWhaleWalletsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWhaleWallets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWhaleWalletsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhaleWallets>>> = ({
+    signal,
+  }) => getWhaleWallets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWhaleWallets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWhaleWalletsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWhaleWallets>>
+>;
+export type GetWhaleWalletsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get discovered whale wallets from ValueChain
+ */
+
+export function useGetWhaleWallets<
+  TData = Awaited<ReturnType<typeof getWhaleWallets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetWhaleWalletsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWhaleWallets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWhaleWalletsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Scan ValueChain for new whale wallets interacting with Sodex contracts
+ */
+export const getScanValueChainUrl = () => {
+  return `/api/valuechain/scan`;
+};
+
+export const scanValueChain = async (
+  scanValueChainBody: ScanValueChainBody,
+  options?: RequestInit,
+): Promise<ValueChainScanResponse> => {
+  return customFetch<ValueChainScanResponse>(getScanValueChainUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(scanValueChainBody),
+  });
+};
+
+export const getScanValueChainMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanValueChain>>,
+    TError,
+    { data: BodyType<ScanValueChainBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scanValueChain>>,
+  TError,
+  { data: BodyType<ScanValueChainBody> },
+  TContext
+> => {
+  const mutationKey = ["scanValueChain"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scanValueChain>>,
+    { data: BodyType<ScanValueChainBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return scanValueChain(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScanValueChainMutationResult = NonNullable<
+  Awaited<ReturnType<typeof scanValueChain>>
+>;
+export type ScanValueChainMutationBody = BodyType<ScanValueChainBody>;
+export type ScanValueChainMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Scan ValueChain for new whale wallets interacting with Sodex contracts
+ */
+export const useScanValueChain = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanValueChain>>,
+    TError,
+    { data: BodyType<ScanValueChainBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof scanValueChain>>,
+  TError,
+  { data: BodyType<ScanValueChainBody> },
+  TContext
+> => {
+  return useMutation(getScanValueChainMutationOptions(options));
+};
 
 /**
  * @summary Post a verified trade

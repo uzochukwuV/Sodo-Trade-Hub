@@ -35,7 +35,7 @@ const WHAT_FAILED_OPTIONS = [
   { value: "leverage", label: "Leverage" },
 ];
 
-const MY_TRADER_ID = 17;
+const MY_TRADER_ID = 37;
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();

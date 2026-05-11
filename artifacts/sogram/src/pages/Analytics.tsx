@@ -1,11 +1,182 @@
-import { useGetAnalyticsSummary, useGetWhaleActivity } from "@workspace/api-client-react";
+import { useState } from "react";
+import {
+  useGetAnalyticsSummary,
+  useGetWhaleActivity,
+  useGetWhaleWallets,
+  useScanValueChain,
+} from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryClient } from "@tanstack/react-query";
 
 function fmtNum(n: number) {
   if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
   if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
   if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "K";
   return "$" + n.toFixed(0);
+}
+
+function truncAddr(addr: string) {
+  return addr.slice(0, 8) + "..." + addr.slice(-6);
+}
+
+function timeAgoFromIso(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return `${Math.floor(diff / 60000)}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+const WHALES_KEY = ["whaleWallets"];
+
+function ValueChainPanel() {
+  const qc = useQueryClient();
+  const [addressInput, setAddressInput] = useState("");
+  const [labelInput, setLabelInput] = useState("");
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const [isAutoScanning, setIsAutoScanning] = useState(false);
+
+  const { data: walletsData, isLoading } = useGetWhaleWallets(
+    { limit: 20 },
+    { query: { queryKey: WHALES_KEY } }
+  );
+
+  const { mutate: scanChain, isPending: isScanning } = useScanValueChain({
+    mutation: {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: WHALES_KEY });
+        if (isAutoScanning) {
+          setScanMsg(`Auto-scan: found ${data.newFound} new wallet${data.newFound !== 1 ? "s" : ""} from ${data.scanned} interactions`);
+          setIsAutoScanning(false);
+        } else {
+          setScanMsg(data.newFound > 0 ? `Added new wallet` : "Wallet already tracked or no Sodex activity found");
+          setAddressInput("");
+          setLabelInput("");
+        }
+        setTimeout(() => setScanMsg(null), 4000);
+      },
+      onError: () => {
+        setScanMsg("Scan failed — check address format");
+        setIsAutoScanning(false);
+        setTimeout(() => setScanMsg(null), 3000);
+      },
+    },
+  });
+
+  const handleScanAddress = () => {
+    if (!addressInput.trim() || isScanning) return;
+    scanChain({ data: { address: addressInput.trim(), label: labelInput.trim() || undefined } });
+  };
+
+  const handleAutoScan = () => {
+    setIsAutoScanning(true);
+    scanChain({ data: {} });
+  };
+
+  const wallets = walletsData?.wallets ?? [];
+
+  return (
+    <div className="border border-border bg-card p-6 mt-4">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <div className="font-black text-[13px] tracking-wider text-white mb-1">VALUECHAIN WHALE SCANNER</div>
+          <div className="text-muted-foreground text-[11px] tracking-wider uppercase">
+            On-chain wallet discovery via Sodex contract interactions
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+          <span className="text-blue-400 text-[10px] font-extrabold tracking-widest">VALUECHAIN</span>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-4">
+        <input
+          value={addressInput}
+          onChange={e => setAddressInput(e.target.value)}
+          placeholder="0x... wallet address"
+          className="flex-1 bg-background border border-border px-3 py-2 text-[12px] text-white placeholder:text-muted-foreground focus:outline-none focus:border-accent/50 font-mono"
+        />
+        <input
+          value={labelInput}
+          onChange={e => setLabelInput(e.target.value)}
+          placeholder="Label (optional)"
+          className="w-36 bg-background border border-border px-3 py-2 text-[12px] text-white placeholder:text-muted-foreground focus:outline-none focus:border-accent/50"
+        />
+        <button
+          onClick={handleScanAddress}
+          disabled={!addressInput.trim() || isScanning}
+          className="bg-accent text-background px-4 py-2 text-[10px] font-black tracking-wider cursor-pointer hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-none"
+        >
+          SCAN
+        </button>
+        <button
+          onClick={handleAutoScan}
+          disabled={isScanning}
+          className="bg-transparent border border-border text-muted-foreground px-4 py-2 text-[10px] font-black tracking-wider cursor-pointer hover:text-white hover:border-white/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          AUTO-DISCOVER
+        </button>
+      </div>
+
+      {scanMsg && (
+        <div className="mb-4 px-3 py-2 border border-accent/30 bg-accent/5 text-accent text-[11px] font-bold tracking-wide">
+          {scanMsg}
+        </div>
+      )}
+
+      {isScanning && (
+        <div className="mb-4 px-3 py-2 border border-border text-muted-foreground text-[11px] font-bold tracking-wide flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+          Scanning ValueChain (EVM 286623)...
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      ) : wallets.length === 0 ? (
+        <div className="text-center text-muted-foreground py-10 text-sm tracking-wider font-bold border border-dashed border-border">
+          NO WALLETS TRACKED YET — SCAN AN ADDRESS OR AUTO-DISCOVER
+        </div>
+      ) : (
+        <div className="flex flex-col gap-0">
+          <div className="grid grid-cols-5 gap-3 px-3 py-2 border-b border-border mb-1">
+            {["ADDRESS", "LABEL", "TX COUNT", "LAST SEEN", "STATUS"].map(h => (
+              <div key={h} className="text-[9px] font-extrabold tracking-widest text-muted-foreground">{h}</div>
+            ))}
+          </div>
+          {wallets.map((w, i) => (
+            <div key={w.id} className={`grid grid-cols-5 gap-3 px-3 py-3 items-center ${i < wallets.length - 1 ? "border-b border-border/40" : ""} hover:bg-white/[0.02] transition-colors`}>
+              <div className="font-mono text-[11px] text-accent/80">{truncAddr(w.address)}</div>
+              <div className="text-[11px] text-muted-foreground font-bold">
+                {w.label || <span className="italic opacity-50">unlabeled</span>}
+              </div>
+              <div className="font-mono text-white font-black text-[13px]">{(w.txCount ?? 0).toLocaleString()}</div>
+              <div className="text-muted-foreground text-[10px] font-mono">{timeAgoFromIso(w.lastSeenAt ?? undefined)}</div>
+              <div>
+                {w.isProfiled ? (
+                  <span className="text-[9px] font-black tracking-wider border border-accent/50 text-accent px-2 py-0.5">PROFILED</span>
+                ) : (
+                  <span className="text-[9px] font-black tracking-wider border border-border text-muted-foreground px-2 py-0.5">WATCHING</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 pt-3 border-t border-border">
+        <p className="text-muted-foreground text-[10px] leading-relaxed">
+          <span className="text-accent font-bold">ValueChain</span> is the EVM network (Chain ID 286623) underpinning Sodex.
+          Wallets are discovered by scanning interactions with Sodex perp contracts.
+          Bot address <span className="font-mono text-[9px]">0x7ce7a7...1f80a</span> is excluded.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function Analytics() {
@@ -154,6 +325,8 @@ export default function Analytics() {
           </div>
         )}
       </div>
+
+      <ValueChainPanel />
     </div>
   );
 }

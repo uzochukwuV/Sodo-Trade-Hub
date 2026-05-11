@@ -3,7 +3,7 @@ import { useListIntents, useVoteIntent } from "@workspace/api-client-react";
 import type { TradeIntent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const MY_VOTER_ID = 17;
+const MY_VOTER_ID = 37;
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();

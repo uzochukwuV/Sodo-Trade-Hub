@@ -1,9 +1,15 @@
 import { useState } from "react";
-import { useGetFeed, useLikeTrade, useLikeSignal, useGetMarketVibe } from "@workspace/api-client-react";
+import {
+  useGetFeed, useLikeTrade, useLikeSignal, useGetMarketVibe,
+  useGetComments, useAddComment,
+} from "@workspace/api-client-react";
 import type { FeedItem } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+
+const MY_COMMENTER_ID = 37;
 
 function RepCircle({ score }: { score: number }) {
   const color = score >= 90 ? "text-accent border-accent/50" : "text-white border-white/20";
@@ -38,6 +44,97 @@ function timeAgo(iso: string) {
 function fmt(n: number) {
   if (n >= 1000) return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   return "$" + n.toFixed(2);
+}
+
+type PostType = "trade" | "signal" | "pain_room" | "intent";
+
+function CommentSection({ postType, postId }: { postType: PostType; postId: number }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const qc = useQueryClient();
+  const commentsKey = ["comments", postType, postId];
+
+  const { data: commentsData, isLoading } = useGetComments(postType, postId, {}, {
+    query: { enabled: open, queryKey: commentsKey },
+  });
+
+  const { mutate: addComment, isPending } = useAddComment({
+    mutation: {
+      onSuccess: () => {
+        setDraft("");
+        qc.invalidateQueries({ queryKey: commentsKey });
+      },
+    },
+  });
+
+  const comments = commentsData?.comments ?? [];
+  const total = commentsData?.total ?? 0;
+
+  const submit = () => {
+    if (!draft.trim() || isPending) return;
+    addComment({ postType, postId, data: { traderId: MY_COMMENTER_ID, content: draft.trim() } });
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="bg-transparent border-none text-muted-foreground text-xs font-semibold cursor-pointer flex items-center gap-1.5 hover:text-white transition-colors"
+      >
+        💬 {open ? `${total} comment${total !== 1 ? "s" : ""}` : `${total > 0 ? total : ""} COMMENT${total !== 1 ? "S" : ""}`}
+      </button>
+
+      {open && (
+        <div className="mt-3 border-t border-border/40 pt-3">
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-3/4" />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5 mb-3">
+              {comments.map(c => (
+                <div key={c.id} className="flex gap-2.5 items-start">
+                  <div className="w-6 h-6 rounded-full border border-border flex items-center justify-center text-[9px] font-black text-muted-foreground shrink-0">
+                    {c.traderHandle.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-white text-[11px] font-bold tracking-wide">{c.traderUsername}</span>
+                      <span className="text-muted-foreground text-[9px] font-mono">@{c.traderHandle}</span>
+                      <span className="text-muted-foreground text-[9px] ml-auto">{timeAgo(c.createdAt)}</span>
+                    </div>
+                    <p className="text-muted-foreground text-[12px] leading-relaxed">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+              {comments.length === 0 && (
+                <p className="text-muted-foreground text-[11px] font-bold tracking-wider text-center py-2">NO COMMENTS YET — BE FIRST</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 items-center">
+            <input
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              placeholder="Add a comment..."
+              maxLength={500}
+              className="flex-1 bg-card border border-border px-3 py-2 text-[12px] text-white placeholder:text-muted-foreground focus:outline-none focus:border-accent/50 font-mono"
+            />
+            <button
+              onClick={submit}
+              disabled={!draft.trim() || isPending}
+              className="bg-accent text-background px-3 py-2 text-[10px] font-black tracking-wider cursor-pointer hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-none"
+            >
+              POST
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
@@ -119,7 +216,7 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             </div>
           )}
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-5 mb-2">
             <button
               data-testid={`like-trade-${post.id}`}
               onClick={() => { likeTrade({ tradeId: post.id }); setLiked(true); }}
@@ -131,6 +228,7 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
               COPY TRADE
             </Button>
           </div>
+          <CommentSection postType="trade" postId={post.id} />
         </div>
       </div>
     </div>
@@ -193,7 +291,7 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-5 mb-2">
             <button
               data-testid={`like-signal-${post.id}`}
               onClick={() => { likeSignal({ signalId: post.id }); setLiked(true); }}
@@ -205,6 +303,7 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
               FOLLOW SIGNAL
             </Button>
           </div>
+          <CommentSection postType="signal" postId={post.id} />
         </div>
       </div>
     </div>
@@ -259,7 +358,7 @@ function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mb-2">
             <span className="text-muted-foreground text-[11px] font-bold">
               💬 {post.breakdownCount} breakdown{post.breakdownCount !== 1 ? "s" : ""}
             </span>
@@ -269,6 +368,7 @@ function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
               </button>
             </Link>
           </div>
+          <CommentSection postType="pain_room" postId={post.id} />
         </div>
       </div>
     </div>

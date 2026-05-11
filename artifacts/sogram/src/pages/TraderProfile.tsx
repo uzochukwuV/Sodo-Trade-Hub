@@ -1,14 +1,21 @@
+import { useState } from "react";
 import { useParams } from "wouter";
 import {
   useGetTrader,
   useGetTraderTrades,
   useGetTraderReputation,
+  useGetTraderFollowers,
+  useFollowTrader,
+  useUnfollowTrader,
   getGetTraderQueryKey,
   getGetTraderTradesQueryKey,
   getGetTraderReputationQueryKey,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
+import { useQueryClient } from "@tanstack/react-query";
+
+const MY_VIEWER_ID = 37;
 
 function fmtPnl(usd: string) {
   const n = Number(usd);
@@ -107,6 +114,61 @@ function RepScoreRing({ score, tier }: { score: number; tier: string }) {
   );
 }
 
+function FollowButton({ traderId }: { traderId: number }) {
+  const qc = useQueryClient();
+  const followKey = ["traderFollowers", traderId, MY_VIEWER_ID];
+
+  const { data: followStats, isLoading: isLoadingFollow } = useGetTraderFollowers(
+    traderId,
+    { followerId: MY_VIEWER_ID },
+    { query: { queryKey: followKey } }
+  );
+
+  const { mutate: follow, isPending: isFollowing } = useFollowTrader({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: followKey }),
+    },
+  });
+  const { mutate: unfollow, isPending: isUnfollowing } = useUnfollowTrader({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: followKey }),
+    },
+  });
+
+  const isFollowingNow = followStats?.isFollowing ?? false;
+  const followerCount = followStats?.followerCount ?? 0;
+  const isPending = isFollowing || isUnfollowing || isLoadingFollow;
+
+  const handleClick = () => {
+    if (isPending) return;
+    if (isFollowingNow) {
+      unfollow({ traderId, data: { followerId: MY_VIEWER_ID } });
+    } else {
+      follow({ traderId, data: { followerId: MY_VIEWER_ID } });
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button
+        onClick={handleClick}
+        disabled={isPending}
+        data-testid="follow-button"
+        className={`px-6 py-2.5 font-black text-xs tracking-wider cursor-pointer transition-colors border ${
+          isFollowingNow
+            ? "bg-transparent text-accent border-accent hover:bg-accent/10"
+            : "bg-transparent text-muted-foreground border-border hover:text-white hover:border-white/40"
+        } ${isPending ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        {isFollowingNow ? "FOLLOWING ✓" : "FOLLOW"}
+      </button>
+      <span className="text-[10px] font-mono text-muted-foreground">
+        {followerCount.toLocaleString()} followers
+      </span>
+    </div>
+  );
+}
+
 export default function TraderProfile() {
   const params = useParams();
   const id = parseInt(params.id || "1", 10);
@@ -162,6 +224,15 @@ export default function TraderProfile() {
             <p className="text-muted-foreground text-[13px] leading-relaxed mb-3 max-w-md">
               {trader.bio || "No bio provided."}
             </p>
+            {(trader as any).walletAddress && (
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[9px] font-extrabold tracking-wider text-muted-foreground">WALLET</span>
+                <span className="font-mono text-[11px] text-accent/70">
+                  {String((trader as any).walletAddress).slice(0, 8)}...{String((trader as any).walletAddress).slice(-6)}
+                </span>
+                <span className="text-[8px] border border-accent/30 text-accent/60 px-1.5 py-0.5 font-black tracking-wider">VALUECHAIN</span>
+              </div>
+            )}
             <div className="flex gap-6 text-xs">
               {[
                 [(trader.followerCount ?? 0).toLocaleString(), "FOLLOWERS"],
@@ -179,9 +250,7 @@ export default function TraderProfile() {
             <button className="bg-accent text-background border-none px-6 py-2.5 font-black text-xs tracking-wider cursor-pointer hover:bg-accent/90 transition-colors">
               COPY TRADE
             </button>
-            <button className="bg-transparent text-muted-foreground border border-border px-6 py-2.5 font-bold text-xs tracking-wider cursor-pointer hover:text-white transition-colors">
-              FOLLOW
-            </button>
+            <FollowButton traderId={id} />
           </div>
         </div>
 

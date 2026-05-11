@@ -191,6 +191,204 @@ paths:
                       $ref: "#/components/schemas/Trade"
                 required: [trades]
 
+  /traders/{traderId}/follow:
+    post:
+      operationId: followTrader
+      tags: [traders]
+      summary: Follow a trader
+      parameters:
+        - name: traderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followerId:
+                  type: integer
+              required: [followerId]
+      responses:
+        "200":
+          description: Follow status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStatus"
+    delete:
+      operationId: unfollowTrader
+      tags: [traders]
+      summary: Unfollow a trader
+      parameters:
+        - name: traderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followerId:
+                  type: integer
+              required: [followerId]
+      responses:
+        "200":
+          description: Unfollowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowStatus"
+
+  /traders/{traderId}/followers:
+    get:
+      operationId: getTraderFollowers
+      tags: [traders]
+      summary: Get a trader's followers and following counts
+      parameters:
+        - name: traderId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: followerId
+          in: query
+          schema:
+            type: integer
+          description: Optional viewer ID to check if they follow this trader
+      responses:
+        "200":
+          description: Follower info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraderFollowStats"
+
+  /comments/{postType}/{postId}:
+    get:
+      operationId: getComments
+      tags: [feed]
+      summary: Get comments for a post
+      parameters:
+        - name: postType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [trade, signal, pain_room, intent]
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Comment"
+                  total:
+                    type: integer
+                required: [comments, total]
+    post:
+      operationId: addComment
+      tags: [feed]
+      summary: Add a comment to a post
+      parameters:
+        - name: postType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [trade, signal, pain_room, intent]
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentBody"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+
+  /valuechain/whales:
+    get:
+      operationId: getWhaleWallets
+      tags: [analytics]
+      summary: Get discovered whale wallets from ValueChain
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Whale wallets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallets:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WhaleWalletEntry"
+                required: [wallets]
+
+  /valuechain/scan:
+    post:
+      operationId: scanValueChain
+      tags: [analytics]
+      summary: Scan ValueChain for new whale wallets interacting with Sodex contracts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  description: Optional specific address to scan. If omitted, scans recent Sodex contract interactions.
+                label:
+                  type: string
+              required: []
+      responses:
+        "200":
+          description: Scan results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueChainScanResponse"
+
   /trades:
     post:
       operationId: createTrade
@@ -1838,6 +2036,109 @@ components:
           items:
             $ref: "#/components/schemas/NewsItem"
       required: [summary, prices, news]
+
+    FollowStatus:
+      type: object
+      properties:
+        following:
+          type: boolean
+        followerCount:
+          type: integer
+      required: [following, followerCount]
+
+    TraderFollowStats:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        followerCount:
+          type: integer
+        followingCount:
+          type: integer
+        isFollowing:
+          type: boolean
+      required: [traderId, followerCount, followingCount, isFollowing]
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        traderId:
+          type: integer
+        traderUsername:
+          type: string
+        traderHandle:
+          type: string
+        traderRepScore:
+          type: number
+        postType:
+          type: string
+          enum: [trade, signal, pain_room, intent]
+        postId:
+          type: integer
+        content:
+          type: string
+        likeCount:
+          type: integer
+        createdAt:
+          type: string
+      required: [id, traderId, traderUsername, traderHandle, traderRepScore, postType, postId, content, likeCount, createdAt]
+
+    CreateCommentBody:
+      type: object
+      properties:
+        traderId:
+          type: integer
+        content:
+          type: string
+      required: [traderId, content]
+
+    WhaleWalletEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        address:
+          type: string
+        label:
+          type: string
+          nullable: true
+        txCount:
+          type: integer
+        contractsInteracted:
+          type: string
+          nullable: true
+        firstSeenAt:
+          type: string
+          nullable: true
+        lastSeenAt:
+          type: string
+          nullable: true
+        isProfiled:
+          type: boolean
+        profiledTraderId:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required: [id, address, txCount, isProfiled, createdAt]
+
+    ValueChainScanResponse:
+      type: object
+      properties:
+        scanned:
+          type: integer
+        newFound:
+          type: integer
+        wallets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WhaleWalletEntry"
+      required: [scanned, newFound, wallets]
 
     SodexFill:
       type: object

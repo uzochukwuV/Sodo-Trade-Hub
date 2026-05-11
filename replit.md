@@ -55,10 +55,12 @@ DB uses: `followerId` / `maxPositionSizeUsd` / `stopLossPct`
 Generated client uses: `copierId` / `maxPerTradeUsd` / `stopCopyDrawdownPct`
 Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
-### Placeholder IDs
-- `CopyTrading.tsx`: `MY_COPIER_ID = 999`
-- `PainRoom.tsx`: `MY_TRADER_ID = 17`
-- `Intents.tsx`: `MY_VOTER_ID = 17`
+### Placeholder IDs (all use trader 37 = CryptoWhale99 as the "current user")
+- `CopyTrading.tsx`: `MY_COPIER_ID = 37`
+- `PainRoom.tsx`: `MY_TRADER_ID = 37`
+- `Intents.tsx`: `MY_VOTER_ID = 37`
+- `TraderProfile.tsx`: `MY_VIEWER_ID = 37`
+- `Feed.tsx`: `MY_COMMENTER_ID = 37`
 
 ## Pages Built
 

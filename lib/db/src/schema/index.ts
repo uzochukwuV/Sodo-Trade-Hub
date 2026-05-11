@@ -5,3 +5,6 @@ export * from "./copy_configs";
 export * from "./pain_rooms";
 export * from "./reputation_events";
 export * from "./trade_intents";
+export * from "./follows";
+export * from "./comments";
+export * from "./whale_wallets";
