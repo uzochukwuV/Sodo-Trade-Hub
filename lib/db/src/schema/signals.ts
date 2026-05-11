@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, boolean, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { tradersTable } from "./traders";
 
 export const signalSideEnum = pgEnum("signal_side", ["LONG", "SHORT"]);
@@ -18,8 +18,13 @@ export const signalsTable = pgTable("signals", {
   isActive: boolean("is_active").notNull().default(true),
   likeCount: integer("like_count").notNull().default(0),
   txHash: text("tx_hash"),
+  // Sodex position id this signal was created from. Prevents the 60s poller from
+  // re-inserting the same OPEN position as a new signal on every cycle.
+  sodexPositionId: text("sodex_position_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  sodexPosUq: uniqueIndex("signals_trader_sodex_uq").on(t.traderId, t.sodexPositionId),
+}));
 
 export type Signal = typeof signalsTable.$inferSelect;
 export type InsertSignal = typeof signalsTable.$inferInsert;

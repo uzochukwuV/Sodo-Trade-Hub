@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, boolean, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { tradersTable } from "./traders";
 
 export const tradeSideEnum = pgEnum("trade_side", ["LONG", "SHORT"]);
@@ -22,7 +22,11 @@ export const tradesTable = pgTable("trades", {
   comment: text("comment"),
   closedAt: timestamp("closed_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  // Prevents duplicate-trade re-inserts if the poller crashes mid-loop or if the
+  // backfill overlaps with the first scheduled poll. Per (traderId, sodexTradeId).
+  sodexTradeUq: uniqueIndex("trades_trader_sodex_uq").on(t.traderId, t.sodexTradeId),
+}));
 
 export type Trade = typeof tradesTable.$inferSelect;
 export type InsertTrade = typeof tradesTable.$inferInsert;

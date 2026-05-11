@@ -41,3 +41,6 @@ externalPort = 3000
 SODEX_BASE_URL = "https://testnet-gw.sodex.dev/api/v1"
 SOSO_BASE_URL = "https://openapi.sosovalue.com/openapi/v1"
 SOSO_API_KEY = "SOSO-45c68ba8a8bb496989d958dabe0e9d1f"
+
+[nix]
+channel = "stable-25_05"

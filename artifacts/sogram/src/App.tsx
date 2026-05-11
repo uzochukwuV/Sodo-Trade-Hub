@@ -13,6 +13,7 @@ import Analytics from "@/pages/Analytics";
 import CopyTrading from "@/pages/CopyTrading";
 import PainRoom from "@/pages/PainRoom";
 import Intents from "@/pages/Intents";
+import Markets from "@/pages/Markets";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ function Router() {
         <Route path="/copy" component={CopyTrading} />
         <Route path="/pain-room" component={PainRoom} />
         <Route path="/intents" component={Intents} />
+        <Route path="/markets" component={Markets} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

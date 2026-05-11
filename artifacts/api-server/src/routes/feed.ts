@@ -12,42 +12,6 @@ function formatTimeAgo(ms: number) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-const WHALE_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "AVAX/USDT"];
-
-function generateWhales(traders: typeof tradersTable.$inferSelect[]) {
-  return WHALE_PAIRS.flatMap((pair) => {
-    const longT = traders[Math.floor(Math.random() * traders.length)];
-    const shortT = traders[Math.floor(Math.random() * traders.length)];
-    const base = Date.now();
-    return [
-      {
-        traderId: longT.id,
-        traderUsername: longT.username,
-        traderHandle: longT.handle,
-        traderWalletAddress: longT.walletAddress ?? undefined,
-        repScore: Number(longT.repScore),
-        pair,
-        side: "LONG" as const,
-        positionSizeUsd: (Math.random() * 9000000 + 1000000).toFixed(0),
-        leverage: String(Math.floor(Math.random() * 20) + 1),
-        timeAgo: formatTimeAgo(base - Math.random() * 86400000),
-      },
-      {
-        traderId: shortT.id,
-        traderUsername: shortT.username,
-        traderHandle: shortT.handle,
-        traderWalletAddress: shortT.walletAddress ?? undefined,
-        repScore: Number(shortT.repScore),
-        pair,
-        side: "SHORT" as const,
-        positionSizeUsd: (Math.random() * 5000000 + 500000).toFixed(0),
-        leverage: String(Math.floor(Math.random() * 10) + 1),
-        timeAgo: formatTimeAgo(base - Math.random() * 86400000),
-      },
-    ];
-  });
-}
-
 router.get("/feed", async (req, res) => {
   const filter = String(req.query.filter ?? "all");
   const limit = Number(req.query.limit ?? 20);
@@ -191,21 +155,39 @@ router.get("/feed", async (req, res) => {
   }
 
   if (filter === "all" || filter === "whales") {
-    const allTraders = await db.select().from(tradersTable).limit(20);
-    if (allTraders.length > 0) {
-      const whales = generateWhales(allTraders);
-      const sliceCount = filter === "all" ? Math.floor(limit / 5) : limit;
-      for (const whale of whales.slice(0, sliceCount)) {
-        const fakeTs = new Date(Date.now() - Math.random() * 86400000).toISOString();
-        items.push({
-          type: "whale",
-          trade: null,
-          signal: null,
-          loss: null,
-          whale,
-          timestamp: fakeTs,
-        });
-      }
+    // "Whale" posts surface real, large notional closed trades from tracked Sodex wallets.
+    // No fabricated data — just trades whose positionSize ≥ $250k notional.
+    const whaleTrades = await db
+      .select({ trade: tradesTable, trader: tradersTable })
+      .from(tradesTable)
+      .innerJoin(tradersTable, eq(tradesTable.traderId, tradersTable.id))
+      .orderBy(desc(tradesTable.positionSize))
+      .limit(filter === "all" ? Math.floor(limit / 5) : limit);
+
+    for (const { trade, trader } of whaleTrades) {
+      const notional = Number(trade.positionSize);
+      if (notional < 250_000) continue;
+      items.push({
+        type: "whale",
+        trade: null,
+        signal: null,
+        loss: null,
+        whale: {
+          traderId: trader.id,
+          traderUsername: trader.username,
+          traderHandle: trader.handle,
+          traderWalletAddress: trader.walletAddress ?? undefined,
+          repScore: Number(trader.repScore),
+          pair: trade.asset,
+          side: trade.side,
+          positionSizeUsd: notional.toFixed(0),
+          leverage: String(trade.leverage),
+          timeAgo: formatTimeAgo(Date.now() - trade.closedAt.getTime()),
+          tradeId: trade.id,
+          pnlUsd: trade.pnlUsd,
+        },
+        timestamp: trade.closedAt.toISOString(),
+      });
     }
   }
 

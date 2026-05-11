@@ -92,24 +92,61 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
 ---
 
-## Platform Analysis (updated May 2026)
+## Platform Analysis (updated May 2026 — REAL DATA REWRITE)
 
-### External APIs — Current State
+### Architecture: 100% Real Sodex Data — NO MOCK
 
-**Sodex and SoSoValue are NOW integrated:**
-- `artifacts/api-server/src/services/market.ts` — unified market service with 30s cache (prices), 5min cache (news/klines)
-- **Sodex testnet** (`SODEX_BASE_URL=https://testnet-gw.sodex.dev/api/v1`): live perp ticker prices for BTC/ETH/SOL/BNB/ARB/OP/AVAX
-- **CoinGecko** (free, no key): OHLC klines for sparkline charts (`/coins/{id}/ohlc`)
-- **SoSoValue** (`SOSO_BASE_URL`, `SOSO_API_KEY`): crypto news feed for Market Vibe section
-- **Market Vibe**: contextual mock text built from real prices + news (OpenRouter deferred)
-- `txHash` column on trades: real 0x-prefixed hex hash, sets `isOnChainVerified=true`, displayed truncated in feed
+The entire platform is now driven by the **Sodex mainnet leaderboard** + **per-wallet positions API**. All seed/mock data has been deleted.
 
-### On-Chain Indexer (NEW)
-- `services/indexer.ts` — polls ValueChain every 120s, finds wallets transacting with Sodex contracts, auto-creates traders with names like `QuantumWolf_FDEE` (adjective+noun+addr suffix). Tier from sodexTxCount + successRate.
-- Routes: `GET /api/indexer/status`, `POST /api/indexer/run`, `GET /api/indexer/discovered`
-- `WalletBadge` component (`components/WalletBadge.tsx`) — shows wallet/tx links to `https://main-scan.valuechain.xyz`, supports `compact` prop. Used in: Feed (Win/Signal/Whale posts), Signals page, Traders directory, TraderProfile, CopyTrading leader cards.
-- `IndexerPanel` component (`components/IndexerPanel.tsx`) — mounted on Analytics page, shows last block, total discovered, RUN NOW button, and recent discoveries list. Polls /api/indexer/status every 15s.
-- Backend payloads (feed + signals) carry `traderWalletAddress`, `traderIsAutoDiscovered`, `txHash` as extra fields (read frontend-side via `(post as any).field` until OpenAPI spec is updated). Anonymous Pain Room posts correctly mask wallet too.
+### Three Backend Services
+
+1. **`services/leaderboard-tracker.ts`** — scrapes Sodex leaderboard, validates each wallet via positions/history, imports qualified traders. Runs hourly + manually. Quality gates: `winRate ≥ 45%`, `≥5 closed positions`, `pnl ≥ $100`. On import, **backfills the trader's last 5 closed positions** into `trades` so the feed has real activity immediately.
+
+2. **`services/signal-poller.ts`** — every 60s, fetches `/positions/history` for each tracked trader using `lastSyncedPositionId` as a high-water mark. New CLOSED positions → `trades` row (real PnL, leverage, entry/exit). New OPEN positions → `signals` row.
+
+3. **`services/market-activity.ts`** — per-symbol live tickers + 15m fills aggregation, 30s cache. Powers the `/markets` dashboard.
+
+### Sodex API Endpoints Used
+
+- `https://mainnet-data.sodex.dev/api/v1/leaderboard?window_type={24H|7D|30D|ALL_TIME}&sort_by={pnl|volume}&page_size={10|20|50}` — `page_size` MUST be one of those three values; max 50 per page; total ~114k traders. Requires `Origin: https://sodex.com` header.
+- `https://mainnet-gw.sodex.dev/api/v1/perps/accounts/{addr}/positions/history?limit=N` — per-wallet history. Returns numeric `id` (high-water mark for poller), `realizedPnL`, `cumClosedSize`, `active`, `positionSide`, `leverage`, `avgEntryPrice`, `avgClosePrice`, `updatedAt`.
+- `https://mainnet-gw.sodex.dev/api/v1/perps/markets/tickers` — 30 markets. **Volume field is `quoteVolume`** (USD 24h volume), NOT `quoteVolume24h`. Other fields: `lastPx`, `markPrice`, `indexPrice`, `changePct`, `openInterest` (base), `fundingRate`.
+- `https://mainnet-gw.sodex.dev/api/v1/perps/markets/{symbol}/trades` — live fills feed (used for 15m buy/sell ratio + net flow).
+
+### Tier Bands (deterministic from PnL + win rate)
+
+- `DIAMOND` — pnl ≥ $10k AND winRate ≥ 65%
+- `GOLD` — pnl ≥ $1k AND winRate ≥ 55%
+- `SILVER` — pnl ≥ $250 AND winRate ≥ 50%
+- else `BRONZE`
+
+Username derived deterministically from wallet (ADJECTIVES + NOUNS + last4 hex suffix), e.g. `PhantomDrake_7027`.
+
+### API Routes
+
+- `POST /api/indexer/run` — manual leaderboard sync. Body: `{window: "24H"|"7D"|"30D"|"ALL_TIME", pageSize: 10|20|50}`. Returns `{scanned, qualified, imported, skipped_low_winrate, skipped_low_volume}`.
+- `POST /api/indexer/poll` — manual signal poller run. Returns `{tradersChecked, newTrades, newSignals}`.
+- `GET /api/indexer/status` — `{lastBlock, walletsDiscovered, lastRunAt, isRunning, lastError, totalAutoDiscovered}`.
+- `GET /api/indexer/discovered` — list of imported traders.
+- `GET /api/markets/activity` — `{activity: [...30 markets], summary: {totalVolume24hUsd, totalOpenInterestUsd, hottestSymbol, topGainer, topLoser, bullishCount, bearishCount, netFlow15mUsd}}`.
+
+### Boot Behavior
+
+- Tracker poller is scheduled every 1h but does **NOT auto-run on boot** — first sync must be triggered manually via `POST /api/indexer/run`. This avoids accidental long blocking calls during dev restarts.
+- Signal poller runs every 60s automatically.
+- Signal resolver runs every 60s (resolves open signals against live prices).
+
+### Frontend
+
+- `pages/Markets.tsx` (`/markets`) — sortable perp activity dashboard (volume / change / fills / OI / flow), market sentiment bar, summary tiles.
+- `components/IndexerPanel.tsx` — mounted on `/analytics`. Shows discovered traders with PnL/winRate/volume cols, plus SYNC LEADERBOARD + POLL POSITIONS buttons.
+- `components/WalletBadge.tsx` — wallet/tx links to `https://main-scan.valuechain.xyz`, used across Feed, Signals, Traders, TraderProfile, CopyTrading.
+- Feed `whale` posts are now REAL — surfaces trades with notional ≥ $250k from tracked Sodex wallets (no random fabrication).
+- Backend payloads (feed + signals) carry `traderWalletAddress`, `traderIsAutoDiscovered`, `txHash` as extra fields (read frontend-side via `(post as any).field` until OpenAPI spec is updated).
+
+### Known Frontend Caveat
+
+Placeholder IDs in Feed/Signals/Pain Room/Intents/CopyTrading/TraderProfile (`MY_*_ID = 37`) refer to a trader that no longer exists after DB wipe. Follow/copy/comment/vote actions will 404 until these are wired to a real authenticated user. Read-only flows (browsing feed/markets/traders) work fully.
 
 ### Market Service API Routes
 - `GET /api/market/prices` — live Sodex ticker prices (30s cache)

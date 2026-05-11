@@ -32,6 +32,14 @@ export const tradersTable = pgTable("traders", {
   contractsTouched: integer("contracts_touched").notNull().default(0),
   firstSeenAt: timestamp("first_seen_at"),
   lastSeenAt: timestamp("last_seen_at"),
+  // Sodex leaderboard tracking
+  leaderboardRank: integer("leaderboard_rank"),
+  leaderboardWindow: text("leaderboard_window"),
+  volumeUsd: numeric("volume_usd", { precision: 18, scale: 2 }).notNull().default("0"),
+  avgLeverage: numeric("avg_leverage", { precision: 8, scale: 2 }).notNull().default("0"),
+  // Signal poller — high-water mark of positions we've already imported
+  lastSyncedPositionId: text("last_synced_position_id"),
+  lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

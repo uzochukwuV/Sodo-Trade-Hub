@@ -231,9 +231,14 @@ export default function TraderProfile() {
                 {(trader as any).isAutoDiscovered && (
                   <span className="bg-blue-500/15 text-blue-400 border border-blue-400/40 px-2 py-0.5 text-[9px] font-black tracking-wider">AUTO-DISCOVERED</span>
                 )}
+                {(trader as any).leaderboardRank && (
+                  <span className="bg-accent/15 text-accent border border-accent/40 px-2 py-0.5 text-[9px] font-black tracking-wider">
+                    SODEX RANK #{(trader as any).leaderboardRank} · {(trader as any).leaderboardWindow}
+                  </span>
+                )}
                 {(trader as any).onchainTxCount > 0 && (
                   <span className="text-muted-foreground text-[10px] font-mono">
-                    {(trader as any).onchainTxCount.toLocaleString()} TXs · {Number((trader as any).onchainSuccessRate ?? 0).toFixed(0)}% SUCCESS
+                    {(trader as any).onchainTxCount.toLocaleString()} POSITIONS · {Number(trader.winRate ?? 0).toFixed(0)}% WIN RATE
                   </span>
                 )}
               </div>

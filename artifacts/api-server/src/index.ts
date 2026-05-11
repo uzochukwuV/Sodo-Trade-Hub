@@ -1,7 +1,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSignalResolver } from "./scripts/signal-resolver";
-import { startIndexerPoller } from "./services/indexer";
+import { startTrackerPoller } from "./services/leaderboard-tracker";
+import { startSignalPoller } from "./services/signal-poller";
 
 const rawPort = process.env["PORT"];
 
@@ -25,5 +26,6 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startSignalResolver(60_000);
-  startIndexerPoller(120_000);
+  startTrackerPoller(60 * 60_000);   // refresh leaderboard hourly (matches Sodex cadence)
+  startSignalPoller(60_000);          // poll each tracked trader's positions every 60s
 });
