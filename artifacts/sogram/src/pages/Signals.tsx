@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useListSignals, useLikeSignal, useGetMarketPrices, useGetMarketKlines, useGetMarketFills } from "@workspace/api-client-react";
 import type { SignalFull, LiveMarketPrice, SodexFill } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WalletBadge } from "@/components/WalletBadge";
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -232,6 +233,15 @@ function SignalCard({ signal, livePrice }: { signal: SignalFull; livePrice: Live
                 )}
               </div>
               <div className="text-muted-foreground text-[10px] font-mono">@{signal.traderHandle} · REP {signal.traderRepScore.toFixed(0)}</div>
+              {((signal as any).traderWalletAddress || (signal as any).txHash) && (
+                <div className="mt-1.5">
+                  <WalletBadge
+                    address={(signal as any).traderWalletAddress}
+                    txHash={(signal as any).txHash}
+                    compact
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right">

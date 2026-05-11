@@ -17,6 +17,7 @@ export const signalsTable = pgTable("signals", {
   status: signalStatusEnum("status").notNull().default("open"),
   isActive: boolean("is_active").notNull().default(true),
   likeCount: integer("like_count").notNull().default(0),
+  txHash: text("tx_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

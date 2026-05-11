@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useListTraders } from "@workspace/api-client-react";
 import { Link } from "wouter";
+import { WalletBadge } from "@/components/WalletBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 
@@ -98,6 +99,12 @@ export default function Traders() {
                         </span>
                       </div>
                       <div className="text-muted-foreground text-xs font-mono">@{trader.handle}</div>
+                      {(trader as any).walletAddress && (
+                        <div className="mt-1.5"><WalletBadge address={(trader as any).walletAddress} compact /></div>
+                      )}
+                      {(trader as any).isAutoDiscovered && (
+                        <span className="inline-block mt-1 bg-blue-500/15 text-blue-400 border border-blue-400/40 px-1.5 py-0.5 text-[8px] font-black tracking-wider">DISCOVERED</span>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">

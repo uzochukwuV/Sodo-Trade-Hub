@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
 
 export const traderTierEnum = pgEnum("trader_tier", ["BRONZE", "SILVER", "GOLD", "DIAMOND"]);
 
@@ -26,6 +26,12 @@ export const tradersTable = pgTable("traders", {
   totalBreakdownsGiven: integer("total_breakdowns_given").notNull().default(0),
   totalBreakdownsHelpful: integer("total_breakdowns_helpful").notNull().default(0),
   walletAddress: text("wallet_address"),
+  isAutoDiscovered: boolean("is_auto_discovered").notNull().default(false),
+  onchainTxCount: integer("onchain_tx_count").notNull().default(0),
+  onchainSuccessRate: numeric("onchain_success_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  contractsTouched: integer("contracts_touched").notNull().default(0),
+  firstSeenAt: timestamp("first_seen_at"),
+  lastSeenAt: timestamp("last_seen_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

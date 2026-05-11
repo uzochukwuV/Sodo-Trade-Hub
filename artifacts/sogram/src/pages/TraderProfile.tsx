@@ -14,6 +14,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
 import { useQueryClient } from "@tanstack/react-query";
+import { WalletBadge } from "@/components/WalletBadge";
 
 const MY_VIEWER_ID = 37;
 
@@ -225,12 +226,16 @@ export default function TraderProfile() {
               {trader.bio || "No bio provided."}
             </p>
             {(trader as any).walletAddress && (
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[9px] font-extrabold tracking-wider text-muted-foreground">WALLET</span>
-                <span className="font-mono text-[11px] text-accent/70">
-                  {String((trader as any).walletAddress).slice(0, 8)}...{String((trader as any).walletAddress).slice(-6)}
-                </span>
-                <span className="text-[8px] border border-accent/30 text-accent/60 px-1.5 py-0.5 font-black tracking-wider">VALUECHAIN</span>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <WalletBadge address={(trader as any).walletAddress} />
+                {(trader as any).isAutoDiscovered && (
+                  <span className="bg-blue-500/15 text-blue-400 border border-blue-400/40 px-2 py-0.5 text-[9px] font-black tracking-wider">AUTO-DISCOVERED</span>
+                )}
+                {(trader as any).onchainTxCount > 0 && (
+                  <span className="text-muted-foreground text-[10px] font-mono">
+                    {(trader as any).onchainTxCount.toLocaleString()} TXs · {Number((trader as any).onchainSuccessRate ?? 0).toFixed(0)}% SUCCESS
+                  </span>
+                )}
               </div>
             )}
             <div className="flex gap-6 text-xs">

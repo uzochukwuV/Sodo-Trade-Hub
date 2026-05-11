@@ -13,6 +13,7 @@ import marketRouter from "./market";
 import followsRouter from "./follows";
 import commentsRouter from "./comments";
 import valuechainRouter from "./valuechain";
+import indexerRouter from "./indexer";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(marketRouter);
 router.use(followsRouter);
 router.use(commentsRouter);
 router.use(valuechainRouter);
+router.use(indexerRouter);
 
 export default router;

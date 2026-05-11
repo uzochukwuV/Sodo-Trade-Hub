@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useListCopyConfigs, useListTraders, useUpsertCopyConfig } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { WalletBadge } from "@/components/WalletBadge";
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -122,6 +123,9 @@ export default function CopyTrading() {
                         }`}>{l.tier}</span>
                       </div>
                       <span className="text-muted-foreground text-[10px] font-mono">@{l.handle}</span>
+                      {(l as any).walletAddress && (
+                        <div className="mt-1"><WalletBadge address={(l as any).walletAddress} compact /></div>
+                      )}
                     </div>
                     {isSelected && <span className="text-accent text-sm font-black">✓</span>}
                   </div>

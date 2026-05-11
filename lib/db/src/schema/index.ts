@@ -8,3 +8,4 @@ export * from "./trade_intents";
 export * from "./follows";
 export * from "./comments";
 export * from "./whale_wallets";
+export * from "./indexer";

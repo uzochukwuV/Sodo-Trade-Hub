@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
+import { IndexerPanel } from "@/components/IndexerPanel";
 
 function fmtNum(n: number) {
   if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
@@ -325,6 +326,8 @@ export default function Analytics() {
           </div>
         )}
       </div>
+
+      <IndexerPanel />
 
       <ValueChainPanel />
     </div>

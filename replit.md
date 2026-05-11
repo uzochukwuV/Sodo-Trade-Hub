@@ -104,6 +104,13 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 - **Market Vibe**: contextual mock text built from real prices + news (OpenRouter deferred)
 - `txHash` column on trades: real 0x-prefixed hex hash, sets `isOnChainVerified=true`, displayed truncated in feed
 
+### On-Chain Indexer (NEW)
+- `services/indexer.ts` — polls ValueChain every 120s, finds wallets transacting with Sodex contracts, auto-creates traders with names like `QuantumWolf_FDEE` (adjective+noun+addr suffix). Tier from sodexTxCount + successRate.
+- Routes: `GET /api/indexer/status`, `POST /api/indexer/run`, `GET /api/indexer/discovered`
+- `WalletBadge` component (`components/WalletBadge.tsx`) — shows wallet/tx links to `https://main-scan.valuechain.xyz`, supports `compact` prop. Used in: Feed (Win/Signal/Whale posts), Signals page, Traders directory, TraderProfile, CopyTrading leader cards.
+- `IndexerPanel` component (`components/IndexerPanel.tsx`) — mounted on Analytics page, shows last block, total discovered, RUN NOW button, and recent discoveries list. Polls /api/indexer/status every 15s.
+- Backend payloads (feed + signals) carry `traderWalletAddress`, `traderIsAutoDiscovered`, `txHash` as extra fields (read frontend-side via `(post as any).field` until OpenAPI spec is updated). Anonymous Pain Room posts correctly mask wallet too.
+
 ### Market Service API Routes
 - `GET /api/market/prices` — live Sodex ticker prices (30s cache)
 - `GET /api/market/news` — SoSoValue news (5min cache)

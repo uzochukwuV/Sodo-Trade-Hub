@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { WalletBadge } from "@/components/WalletBadge";
 
 const MY_COMMENTER_ID = 37;
 
@@ -155,6 +156,9 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <Tag label="WIN" accent={isWin} danger={!isWin} />
             {post.isOnChainVerified && <Tag label="ON-CHAIN ✓" accent />}
+            {(post as any).traderIsAutoDiscovered && (
+              <span className="bg-blue-500/15 text-blue-400 border border-blue-400/40 px-1.5 py-0.5 text-[9px] font-black tracking-wider">DISCOVERED</span>
+            )}
             <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt)}</span>
           </div>
 
@@ -193,13 +197,13 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             </div>
           </div>
 
-          {(post as any).txHash && (
-            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 border border-accent/20 bg-accent/5">
-              <span className="text-accent text-[9px] font-extrabold tracking-widest">TX</span>
-              <span className="text-accent/70 font-mono text-[10px]">
-                {String((post as any).txHash).slice(0, 6)}...{String((post as any).txHash).slice(-6)}
-              </span>
-              <span className="text-muted-foreground text-[9px] ml-auto">EVM ON-CHAIN</span>
+          {((post as any).txHash || (post as any).traderWalletAddress) && (
+            <div className="flex items-center gap-2 mb-2 px-3 py-2 border border-accent/15 bg-accent/[0.03]">
+              <WalletBadge
+                address={(post as any).traderWalletAddress}
+                txHash={(post as any).txHash}
+              />
+              <span className="text-muted-foreground text-[9px] ml-auto font-bold tracking-wider">VALUECHAIN VERIFIED</span>
             </div>
           )}
           {(post as any).sodexTradeId && (
@@ -255,8 +259,14 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
             <span className="text-white font-extrabold text-sm tracking-wide">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <span className="bg-transparent border border-accent/60 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">SIGNAL</span>
+            {(post as any).traderIsAutoDiscovered && (
+              <span className="bg-blue-500/15 text-blue-400 border border-blue-400/40 px-1.5 py-0.5 text-[9px] font-black tracking-wider">DISCOVERED</span>
+            )}
             <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt ?? "")}</span>
           </div>
+          {((post as any).traderWalletAddress || (post as any).txHash) && (
+            <div className="mb-3"><WalletBadge address={(post as any).traderWalletAddress} txHash={(post as any).txHash} /></div>
+          )}
 
           {post.reasoning && (
             <p className="text-muted-foreground text-[13px] leading-relaxed mb-4">{post.reasoning}</p>
@@ -393,6 +403,9 @@ function WhalePost({ post }: { post: NonNullable<FeedItem["whale"]> }) {
             <span className="text-white font-extrabold text-sm">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <span className="bg-transparent border border-border text-muted-foreground px-2 py-0.5 text-[10px] font-bold tracking-wider">WHALE</span>
+            {(post as any).traderWalletAddress && (
+              <WalletBadge address={(post as any).traderWalletAddress} compact />
+            )}
             <span className="text-muted-foreground text-[11px] ml-auto">{post.timeAgo}</span>
           </div>
 
