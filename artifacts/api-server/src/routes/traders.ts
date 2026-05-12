@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, tradersTable, tradesTable } from "@workspace/db";
-import { eq, desc, ilike, count } from "drizzle-orm";
+import { eq, desc, ilike, count, sql, and, gte } from "drizzle-orm";
 import {
   ListTradersQueryParams,
   CreateTraderBody,
@@ -52,7 +52,14 @@ router.get("/traders/:traderId", async (req, res) => {
     res.status(404).json({ error: "Trader not found" });
     return;
   }
-  res.json(trader);
+  // Compute realized 30d PnL live so the stats strip stays in sync without a
+  // background job. Cheap: indexed scan on (trader_id, closed_at).
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [{ pnl30dSum }] = await db
+    .select({ pnl30dSum: sql<string | null>`COALESCE(SUM(${tradesTable.pnlUsd}), 0)` })
+    .from(tradesTable)
+    .where(and(eq(tradesTable.traderId, trader.id), gte(tradesTable.closedAt, since)));
+  res.json({ ...trader, realized30dPnlUsd: Number(pnl30dSum ?? 0) });
 });
 
 router.get("/traders/:traderId/trades", async (req, res) => {
@@ -64,12 +71,28 @@ router.get("/traders/:traderId/trades", async (req, res) => {
   }
   const { limit } = parsed.data;
   const offset = Number(req.query.offset ?? 0);
+  const trader = await db.query.tradersTable.findFirst({
+    where: eq(tradersTable.id, traderId),
+    columns: {
+      id: true, username: true, handle: true, repScore: true, tier: true,
+      walletAddress: true, isAutoDiscovered: true,
+    },
+  });
   const trades = await db.select().from(tradesTable)
     .where(eq(tradesTable.traderId, traderId))
     .orderBy(desc(tradesTable.createdAt))
     .limit(limit)
     .offset(offset);
-  res.json({ trades, total: trades.length });
+  const enriched = trades.map((t) => ({
+    ...t,
+    traderUsername: trader?.username,
+    traderHandle: trader?.handle,
+    traderRepScore: trader ? Number(trader.repScore) : 0,
+    traderTier: trader?.tier,
+    traderWalletAddress: trader?.walletAddress ?? undefined,
+    traderIsAutoDiscovered: trader?.isAutoDiscovered ?? false,
+  }));
+  res.json({ trades: enriched, total: enriched.length });
 });
 
 export default router;

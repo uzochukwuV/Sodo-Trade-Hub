@@ -3,20 +3,40 @@ import { db, signalsTable, tradersTable } from "@workspace/db";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { LikeSignalParams } from "@workspace/api-zod";
 import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
+import { eliteTraderSqlPredicate } from "../services/trader-classification";
 
 const router: IRouter = Router();
 
 router.get("/signals", async (req, res) => {
   const { asset, side, status, minConfidence, traderId, limit = 20, offset = 0 } = req.query;
+  // Default to elite-only on the Signals page; the page exposes a toggle to
+  // include everyone. `false` / `0` opt out; anything else (incl. omitted) is
+  // treated as truthy. A traderId filter always wins (profile drill-down).
+  const eliteOnly =
+    !traderId &&
+    req.query.eliteOnly !== "false" &&
+    req.query.eliteOnly !== "0";
 
   const filters = [];
   if (asset) filters.push(eq(signalsTable.asset, String(asset)));
   if (side === "LONG" || side === "SHORT") filters.push(eq(signalsTable.side, side));
-  if (status === "open" || status === "hit" || status === "stopped") {
-    filters.push(eq(signalsTable.status, status));
-  }
+  // Status filter: explicit value wins. If omitted AND no traderId is set
+  // (i.e. the Signals page list, not a profile drill-down), default to "open"
+  // so the page only surfaces live setups.
+  const effectiveStatus =
+    status === "all"
+      ? undefined
+      : status === "open" || status === "hit" || status === "stopped"
+      ? status
+      : !traderId
+        ? "open"
+        : undefined;
+  if (effectiveStatus) filters.push(eq(signalsTable.status, effectiveStatus));
   if (minConfidence) filters.push(gte(signalsTable.confidence, Number(minConfidence)));
   if (traderId) filters.push(eq(signalsTable.traderId, Number(traderId)));
+  if (eliteOnly) filters.push(eliteTraderSqlPredicate());
+
+  const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
   const rows = await db
     .select({
@@ -25,7 +45,7 @@ router.get("/signals", async (req, res) => {
     })
     .from(signalsTable)
     .innerJoin(tradersTable, eq(signalsTable.traderId, tradersTable.id))
-    .where(filters.length > 0 ? and(...filters) : undefined)
+    .where(whereClause)
     .orderBy(sql`${signalsTable.createdAt} desc`)
     .limit(Number(limit))
     .offset(Number(offset));
@@ -33,7 +53,8 @@ router.get("/signals", async (req, res) => {
   const [{ value: total }] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(signalsTable)
-    .where(filters.length > 0 ? and(...filters) : undefined);
+    .innerJoin(tradersTable, eq(signalsTable.traderId, tradersTable.id))
+    .where(whereClause);
 
   res.json({
     signals: rows.map(({ signal, trader }) => ({
@@ -48,6 +69,7 @@ router.get("/signals", async (req, res) => {
       traderWalletAddress: trader.walletAddress ?? undefined,
       traderIsAutoDiscovered: trader.isAutoDiscovered,
       txHash: signal.txHash ?? undefined,
+      sodexPositionId: signal.sodexPositionId ?? undefined,
       asset: signal.asset,
       side: signal.side,
       entryPrice: signal.entryPrice,

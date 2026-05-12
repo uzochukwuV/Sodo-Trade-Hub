@@ -32,7 +32,7 @@ export const GetFeedQueryParams = zod.object({
 export const GetFeedResponse = zod.object({
   items: zod.array(
     zod.object({
-      type: zod.enum(["trade", "signal", "loss", "whale"]),
+      type: zod.enum(["trade", "signal", "moderate_signal", "loss", "whale"]),
       trade: zod
         .object({
           id: zod.number(),
@@ -41,6 +41,8 @@ export const GetFeedResponse = zod.object({
           traderHandle: zod.string(),
           traderRepScore: zod.number(),
           traderTier: zod.string(),
+          traderWalletAddress: zod.string().nullish(),
+          traderIsAutoDiscovered: zod.boolean().optional(),
           asset: zod.string(),
           side: zod.enum(["LONG", "SHORT"]),
           entryPrice: zod.number(),
@@ -72,6 +74,10 @@ export const GetFeedResponse = zod.object({
           traderHandle: zod.string(),
           traderRepScore: zod.number(),
           traderTier: zod.string(),
+          traderWalletAddress: zod.string().nullish(),
+          traderIsAutoDiscovered: zod.boolean().optional(),
+          traderSignalAccuracy: zod.number().optional(),
+          traderStreakDays: zod.number().optional(),
           asset: zod.string(),
           side: zod.enum(["LONG", "SHORT"]),
           entryPrice: zod.string(),
@@ -82,6 +88,35 @@ export const GetFeedResponse = zod.object({
           status: zod.string(),
           likeCount: zod.number(),
           isActive: zod.boolean(),
+          txHash: zod.string().nullish(),
+          sodexPositionId: zod.string().nullish(),
+          createdAt: zod.string(),
+        })
+        .optional(),
+      moderateSignal: zod
+        .object({
+          id: zod.number(),
+          traderId: zod.number(),
+          traderUsername: zod.string(),
+          traderHandle: zod.string(),
+          traderRepScore: zod.number(),
+          traderTier: zod.string(),
+          traderWalletAddress: zod.string().nullish(),
+          traderIsAutoDiscovered: zod.boolean().optional(),
+          traderSignalAccuracy: zod.number().optional(),
+          traderStreakDays: zod.number().optional(),
+          asset: zod.string(),
+          side: zod.enum(["LONG", "SHORT"]),
+          entryPrice: zod.string(),
+          targetPrice: zod.string(),
+          stopLoss: zod.string(),
+          confidence: zod.number(),
+          reasoning: zod.string(),
+          status: zod.string(),
+          likeCount: zod.number(),
+          isActive: zod.boolean(),
+          txHash: zod.string().nullish(),
+          sodexPositionId: zod.string().nullish(),
           createdAt: zod.string(),
         })
         .optional(),
@@ -93,6 +128,7 @@ export const GetFeedResponse = zod.object({
           traderHandle: zod.string().optional(),
           traderRepScore: zod.number(),
           traderTier: zod.string(),
+          traderWalletAddress: zod.string().nullish(),
           isAnonymous: zod.boolean(),
           asset: zod.string(),
           side: zod.string(),
@@ -109,6 +145,8 @@ export const GetFeedResponse = zod.object({
         .object({
           traderUsername: zod.string(),
           traderHandle: zod.string(),
+          traderWalletAddress: zod.string().nullish(),
+          traderIsAutoDiscovered: zod.boolean().optional(),
           repScore: zod.number(),
           positionSizeUsd: zod.string(),
           pair: zod.string(),
@@ -116,6 +154,8 @@ export const GetFeedResponse = zod.object({
           leverage: zod.string(),
           timeAgo: zod.string(),
           traderId: zod.number(),
+          tradeId: zod.number().nullish(),
+          pnlUsd: zod.string().nullish(),
         })
         .optional(),
     }),
@@ -164,6 +204,21 @@ export const ListTradersResponse = zod.object({
       maxDrawdown: zod.number().optional(),
       avgHoldDays: zod.number().optional(),
       sharpeRatio: zod.number().optional(),
+      walletAddress: zod.string().nullish(),
+      isAutoDiscovered: zod.boolean().optional(),
+      leaderboardRank: zod.number().nullish(),
+      leaderboardWindow: zod.string().nullish(),
+      onchainTxCount: zod.number().optional(),
+      avgLeverage: zod
+        .string()
+        .optional()
+        .describe("Stored as numeric — sent as string to preserve precision"),
+      realized30dPnlUsd: zod
+        .number()
+        .optional()
+        .describe(
+          "Sum of pnl_usd over the last 30 days (computed live, used by ELITE classification).",
+        ),
       joinedAt: zod.string(),
     }),
   ),
@@ -217,6 +272,21 @@ export const GetTraderResponse = zod
     maxDrawdown: zod.number().optional(),
     avgHoldDays: zod.number().optional(),
     sharpeRatio: zod.number().optional(),
+    walletAddress: zod.string().nullish(),
+    isAutoDiscovered: zod.boolean().optional(),
+    leaderboardRank: zod.number().nullish(),
+    leaderboardWindow: zod.string().nullish(),
+    onchainTxCount: zod.number().optional(),
+    avgLeverage: zod
+      .string()
+      .optional()
+      .describe("Stored as numeric — sent as string to preserve precision"),
+    realized30dPnlUsd: zod
+      .number()
+      .optional()
+      .describe(
+        "Sum of pnl_usd over the last 30 days (computed live, used by ELITE classification).",
+      ),
     joinedAt: zod.string(),
   })
   .and(
@@ -229,6 +299,8 @@ export const GetTraderResponse = zod
           traderHandle: zod.string(),
           traderRepScore: zod.number(),
           traderTier: zod.string(),
+          traderWalletAddress: zod.string().nullish(),
+          traderIsAutoDiscovered: zod.boolean().optional(),
           asset: zod.string(),
           side: zod.enum(["LONG", "SHORT"]),
           entryPrice: zod.number(),
@@ -315,6 +387,8 @@ export const GetTraderTradesResponse = zod.object({
       traderHandle: zod.string(),
       traderRepScore: zod.number(),
       traderTier: zod.string(),
+      traderWalletAddress: zod.string().nullish(),
+      traderIsAutoDiscovered: zod.boolean().optional(),
       asset: zod.string(),
       side: zod.enum(["LONG", "SHORT"]),
       entryPrice: zod.number(),
@@ -557,15 +631,28 @@ export const ResolveSignalResponse = zod.object({
 /**
  * @summary List trading signals with optional filters
  */
+export const listSignalsQueryStatusDefault = `open`;
+export const listSignalsQueryEliteOnlyDefault = true;
 export const listSignalsQueryLimitDefault = 20;
 export const listSignalsQueryOffsetDefault = 0;
 
 export const ListSignalsQueryParams = zod.object({
   asset: zod.coerce.string().optional(),
   side: zod.enum(["LONG", "SHORT"]).optional(),
-  status: zod.enum(["open", "hit", "stopped"]).optional(),
+  status: zod
+    .enum(["open", "hit", "stopped", "all"])
+    .default(listSignalsQueryStatusDefault)
+    .describe(
+      "Defaults to `open` when omitted (and `traderId` is not set), so the\nSignals page only shows live setups. Pass `hit`\/`stopped` for the\nother tabs, `all` to disable the status filter explicitly, or omit +\nset `traderId` to get every status for one trader's drill-down.\n",
+    ),
   minConfidence: zod.coerce.number().optional(),
   traderId: zod.coerce.number().optional(),
+  eliteOnly: zod.coerce
+    .boolean()
+    .default(listSignalsQueryEliteOnlyDefault)
+    .describe(
+      "When true (default), only return signals from elite traders (tier\nDIAMOND\/GOLD or 30d realized PnL ≥ $5,000). Pass `false` to\ninclude moderate traders too. Ignored when `traderId` is set.\n",
+    ),
   limit: zod.coerce.number().default(listSignalsQueryLimitDefault),
   offset: zod.coerce.number().default(listSignalsQueryOffsetDefault),
 });
@@ -579,6 +666,12 @@ export const ListSignalsResponse = zod.object({
       traderHandle: zod.string(),
       traderRepScore: zod.number(),
       traderTier: zod.string(),
+      traderWalletAddress: zod.string().nullish(),
+      traderIsAutoDiscovered: zod.boolean().optional(),
+      traderSignalAccuracy: zod.number().optional(),
+      traderStreakDays: zod.number().optional(),
+      txHash: zod.string().nullish(),
+      sodexPositionId: zod.string().nullish(),
       asset: zod.string(),
       side: zod.enum(["LONG", "SHORT"]),
       entryPrice: zod.string(),
@@ -1056,6 +1149,8 @@ export const GetWhaleActivityResponse = zod.object({
     zod.object({
       traderUsername: zod.string(),
       traderHandle: zod.string(),
+      traderWalletAddress: zod.string().nullish(),
+      traderIsAutoDiscovered: zod.boolean().optional(),
       repScore: zod.number(),
       positionSizeUsd: zod.string(),
       pair: zod.string(),
@@ -1063,6 +1158,8 @@ export const GetWhaleActivityResponse = zod.object({
       leverage: zod.string(),
       timeAgo: zod.string(),
       traderId: zod.number(),
+      tradeId: zod.number().nullish(),
+      pnlUsd: zod.string().nullish(),
     }),
   ),
 });

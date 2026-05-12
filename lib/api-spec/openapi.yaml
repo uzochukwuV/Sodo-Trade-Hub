@@ -496,9 +496,15 @@ paths:
             enum: [LONG, SHORT]
         - name: status
           in: query
+          description: |
+            Defaults to `open` when omitted (and `traderId` is not set), so the
+            Signals page only shows live setups. Pass `hit`/`stopped` for the
+            other tabs, `all` to disable the status filter explicitly, or omit +
+            set `traderId` to get every status for one trader's drill-down.
           schema:
             type: string
-            enum: [open, hit, stopped]
+            enum: [open, hit, stopped, all]
+            default: open
         - name: minConfidence
           in: query
           schema:
@@ -507,6 +513,15 @@ paths:
           in: query
           schema:
             type: integer
+        - name: eliteOnly
+          in: query
+          description: |
+            When true (default), only return signals from elite traders (tier
+            DIAMOND/GOLD or 30d realized PnL ≥ $5,000). Pass `false` to
+            include moderate traders too. Ignored when `traderId` is set.
+          schema:
+            type: boolean
+            default: true
         - name: limit
           in: query
           schema:
@@ -1235,6 +1250,25 @@ components:
           type: number
         sharpeRatio:
           type: number
+        walletAddress:
+          type: string
+          nullable: true
+        isAutoDiscovered:
+          type: boolean
+        leaderboardRank:
+          type: integer
+          nullable: true
+        leaderboardWindow:
+          type: string
+          nullable: true
+        onchainTxCount:
+          type: integer
+        avgLeverage:
+          type: string
+          description: "Stored as numeric — sent as string to preserve precision"
+        realized30dPnlUsd:
+          type: number
+          description: "Sum of pnl_usd over the last 30 days (computed live, used by ELITE classification)."
         joinedAt:
           type: string
       required:
@@ -1355,6 +1389,11 @@ components:
           type: number
         traderTier:
           type: string
+        traderWalletAddress:
+          type: string
+          nullable: true
+        traderIsAutoDiscovered:
+          type: boolean
         asset:
           type: string
         side:
@@ -1472,6 +1511,15 @@ components:
           type: number
         traderTier:
           type: string
+        traderWalletAddress:
+          type: string
+          nullable: true
+        traderIsAutoDiscovered:
+          type: boolean
+        traderSignalAccuracy:
+          type: number
+        traderStreakDays:
+          type: integer
         asset:
           type: string
         side:
@@ -1493,6 +1541,12 @@ components:
           type: integer
         isActive:
           type: boolean
+        txHash:
+          type: string
+          nullable: true
+        sodexPositionId:
+          type: string
+          nullable: true
         createdAt:
           type: string
       required:
@@ -1529,6 +1583,21 @@ components:
           type: number
         traderTier:
           type: string
+        traderWalletAddress:
+          type: string
+          nullable: true
+        traderIsAutoDiscovered:
+          type: boolean
+        traderSignalAccuracy:
+          type: number
+        traderStreakDays:
+          type: integer
+        txHash:
+          type: string
+          nullable: true
+        sodexPositionId:
+          type: string
+          nullable: true
         asset:
           type: string
         side:
@@ -1746,10 +1815,12 @@ components:
       properties:
         type:
           type: string
-          enum: [trade, signal, loss, whale]
+          enum: [trade, signal, moderate_signal, loss, whale]
         trade:
           $ref: "#/components/schemas/Trade"
         signal:
+          $ref: "#/components/schemas/Signal"
+        moderateSignal:
           $ref: "#/components/schemas/Signal"
         loss:
           $ref: "#/components/schemas/FeedLoss"
@@ -1772,6 +1843,9 @@ components:
           type: number
         traderTier:
           type: string
+        traderWalletAddress:
+          type: string
+          nullable: true
         isAnonymous:
           type: boolean
         asset:
@@ -2313,6 +2387,11 @@ components:
           type: string
         traderHandle:
           type: string
+        traderWalletAddress:
+          type: string
+          nullable: true
+        traderIsAutoDiscovered:
+          type: boolean
         repScore:
           type: integer
         positionSizeUsd:
@@ -2328,6 +2407,12 @@ components:
           type: string
         traderId:
           type: integer
+        tradeId:
+          type: integer
+          nullable: true
+        pnlUsd:
+          type: string
+          nullable: true
       required:
         - traderUsername
         - traderHandle

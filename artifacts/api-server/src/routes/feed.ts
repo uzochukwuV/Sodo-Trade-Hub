@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, tradersTable, tradesTable, signalsTable, painRoomsTable } from "@workspace/db";
 import { eq, desc, and, lt } from "drizzle-orm";
+import { nonEliteTraderSqlPredicate } from "../services/trader-classification";
 
 const router: IRouter = Router();
 
@@ -74,39 +75,49 @@ router.get("/feed", async (req, res) => {
   }
 
   if (filter === "all" || filter === "signals") {
+    // Only non-elite traders' signals appear in the Feed (tagged
+    // "moderate_signal"). Elite signals are routed exclusively to the
+    // Signals page so the Feed stays a "social/discovery" surface.
     const signals = await db
       .select({ signal: signalsTable, trader: tradersTable })
       .from(signalsTable)
       .innerJoin(tradersTable, eq(signalsTable.traderId, tradersTable.id))
+      .where(and(eq(signalsTable.status, "open"), nonEliteTraderSqlPredicate()))
       .orderBy(desc(signalsTable.createdAt))
       .limit(filter === "all" ? Math.floor(limit / 3) : limit)
       .offset(offset);
 
     for (const { signal, trader } of signals) {
+      const signalPayload = {
+        id: signal.id,
+        traderId: trader.id,
+        traderUsername: trader.username,
+        traderHandle: trader.handle,
+        traderRepScore: Number(trader.repScore),
+        traderTier: trader.tier,
+        traderSignalAccuracy: Number(trader.signalAccuracy),
+        traderStreakDays: trader.streakDays,
+        traderWalletAddress: trader.walletAddress ?? undefined,
+        traderIsAutoDiscovered: trader.isAutoDiscovered,
+        txHash: signal.txHash ?? undefined,
+        sodexPositionId: signal.sodexPositionId ?? undefined,
+        asset: signal.asset,
+        side: signal.side,
+        entryPrice: Number(signal.entryPrice),
+        targetPrice: Number(signal.targetPrice),
+        stopLoss: Number(signal.stopLoss),
+        confidence: signal.confidence,
+        reasoning: signal.reasoning ?? undefined,
+        status: signal.status,
+        isActive: signal.isActive,
+        likeCount: signal.likeCount,
+        createdAt: signal.createdAt.toISOString(),
+      };
       items.push({
-        type: "signal",
+        type: "moderate_signal",
         trade: null,
-        signal: {
-          id: signal.id,
-          traderId: trader.id,
-          traderUsername: trader.username,
-          traderHandle: trader.handle,
-          traderRepScore: Number(trader.repScore),
-          traderTier: trader.tier,
-          traderWalletAddress: trader.walletAddress ?? undefined,
-          traderIsAutoDiscovered: trader.isAutoDiscovered,
-          txHash: signal.txHash ?? undefined,
-          asset: signal.asset,
-          side: signal.side,
-          entryPrice: Number(signal.entryPrice),
-          targetPrice: Number(signal.targetPrice),
-          stopLoss: Number(signal.stopLoss),
-          confidence: signal.confidence,
-          reasoning: signal.reasoning ?? undefined,
-          isActive: signal.isActive,
-          likeCount: signal.likeCount,
-          createdAt: signal.createdAt.toISOString(),
-        },
+        signal: signalPayload,
+        moderateSignal: signalPayload,
         loss: null,
         whale: null,
         timestamp: signal.createdAt.toISOString(),

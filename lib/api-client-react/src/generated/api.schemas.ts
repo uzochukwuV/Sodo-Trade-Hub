@@ -52,6 +52,15 @@ export interface Trader {
   maxDrawdown?: number;
   avgHoldDays?: number;
   sharpeRatio?: number;
+  walletAddress?: string | null;
+  isAutoDiscovered?: boolean;
+  leaderboardRank?: number | null;
+  leaderboardWindow?: string | null;
+  onchainTxCount?: number;
+  /** Stored as numeric — sent as string to preserve precision */
+  avgLeverage?: string;
+  /** Sum of pnl_usd over the last 30 days (computed live, used by ELITE classification). */
+  realized30dPnlUsd?: number;
   joinedAt: string;
 }
 
@@ -69,6 +78,8 @@ export interface Trade {
   traderHandle: string;
   traderRepScore: number;
   traderTier: string;
+  traderWalletAddress?: string | null;
+  traderIsAutoDiscovered?: boolean;
   asset: string;
   side: TradeSide;
   entryPrice: number;
@@ -169,6 +180,10 @@ export interface Signal {
   traderHandle: string;
   traderRepScore: number;
   traderTier: string;
+  traderWalletAddress?: string | null;
+  traderIsAutoDiscovered?: boolean;
+  traderSignalAccuracy?: number;
+  traderStreakDays?: number;
   asset: string;
   side: SignalSide;
   entryPrice: string;
@@ -179,6 +194,8 @@ export interface Signal {
   status: string;
   likeCount: number;
   isActive: boolean;
+  txHash?: string | null;
+  sodexPositionId?: string | null;
   createdAt: string;
 }
 
@@ -206,6 +223,12 @@ export interface SignalFull {
   traderHandle: string;
   traderRepScore: number;
   traderTier: string;
+  traderWalletAddress?: string | null;
+  traderIsAutoDiscovered?: boolean;
+  traderSignalAccuracy?: number;
+  traderStreakDays?: number;
+  txHash?: string | null;
+  sodexPositionId?: string | null;
   asset: string;
   side: SignalFullSide;
   entryPrice: string;
@@ -332,6 +355,7 @@ export type FeedItemType = (typeof FeedItemType)[keyof typeof FeedItemType];
 export const FeedItemType = {
   trade: "trade",
   signal: "signal",
+  moderate_signal: "moderate_signal",
   loss: "loss",
   whale: "whale",
 } as const;
@@ -343,6 +367,7 @@ export interface FeedLoss {
   traderHandle?: string;
   traderRepScore: number;
   traderTier: string;
+  traderWalletAddress?: string | null;
   isAnonymous: boolean;
   asset: string;
   side: string;
@@ -366,6 +391,8 @@ export const WhalePositionSide = {
 export interface WhalePosition {
   traderUsername: string;
   traderHandle: string;
+  traderWalletAddress?: string | null;
+  traderIsAutoDiscovered?: boolean;
   repScore: number;
   positionSizeUsd: string;
   pair: string;
@@ -373,12 +400,15 @@ export interface WhalePosition {
   leverage: string;
   timeAgo: string;
   traderId: number;
+  tradeId?: number | null;
+  pnlUsd?: string | null;
 }
 
 export interface FeedItem {
   type: FeedItemType;
   trade?: Trade;
   signal?: Signal;
+  moderateSignal?: Signal;
   loss?: FeedLoss;
   whale?: WhalePosition;
 }
@@ -853,9 +883,23 @@ export type ResolveSignal200 = {
 export type ListSignalsParams = {
   asset?: string;
   side?: ListSignalsSide;
+  /**
+ * Defaults to `open` when omitted (and `traderId` is not set), so the
+Signals page only shows live setups. Pass `hit`/`stopped` for the
+other tabs, `all` to disable the status filter explicitly, or omit +
+set `traderId` to get every status for one trader's drill-down.
+
+ */
   status?: ListSignalsStatus;
   minConfidence?: number;
   traderId?: number;
+  /**
+ * When true (default), only return signals from elite traders (tier
+DIAMOND/GOLD or 30d realized PnL ≥ $5,000). Pass `false` to
+include moderate traders too. Ignored when `traderId` is set.
+
+ */
+  eliteOnly?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -875,6 +919,7 @@ export const ListSignalsStatus = {
   open: "open",
   hit: "hit",
   stopped: "stopped",
+  all: "all",
 } as const;
 
 export type ListSignals200 = {

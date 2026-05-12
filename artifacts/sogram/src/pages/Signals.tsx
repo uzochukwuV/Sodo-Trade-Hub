@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { useListSignals, useLikeSignal, useGetMarketPrices, useGetMarketKlines, useGetMarketFills } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFeedStream } from "@/lib/sse";
@@ -200,14 +201,23 @@ function LivePriceStrip({ signal, livePrice }: { signal: SignalFull; livePrice: 
 
 function SignalCard({ signal, livePrice }: { signal: SignalFull; livePrice: LiveMarketPrice | undefined }) {
   const { mutate: likeSignal } = useLikeSignal();
+  const [, navigate] = useLocation();
   const [liked, setLiked] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const isLong = signal.side === "LONG";
   const rr = calcRR(signal.entryPrice, signal.targetPrice, signal.stopLoss, signal.side);
   const isOpen = signal.status === "open";
+  // Whole card routes into the trader profile drill-down with the signal
+  // pre-highlighted/scrolled-to. Use a clickable div (not <Link>) because
+  // the card embeds <WalletBadge> which renders <a> tags — nesting <a>
+  // inside <a> triggers a hydration warning.
+  const profileHref = `/traders/${signal.traderId}?highlightSignalId=${signal.id}`;
 
   return (
-    <div className="border border-border bg-card hover:border-accent/30 transition-colors">
+    <div role="link" tabIndex={0} onClick={() => navigate(profileHref)}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate(profileHref); }}
+      className="border border-border bg-card hover:border-accent/30 transition-colors cursor-pointer"
+      data-testid={`card-signal-${signal.id}`}>
       {/* Header */}
       <div className="p-5 border-b border-border/50">
         <div className="flex items-start justify-between mb-3">
@@ -223,23 +233,23 @@ function SignalCard({ signal, livePrice }: { signal: SignalFull; livePrice: Live
                   signal.traderTier === "GOLD" ? "border-yellow-400/60 text-yellow-400" :
                   "border-border text-muted-foreground"
                 }`}>{signal.traderTier}</span>
-                {(signal as any).traderSignalAccuracy !== undefined && (
+                {signal.traderSignalAccuracy !== undefined && (
                   <span className="text-[8px] font-extrabold tracking-wider text-blue-400 border border-blue-400/40 px-1.5 py-0.5">
-                    {Number((signal as any).traderSignalAccuracy).toFixed(0)}% SIG
+                    {Number(signal.traderSignalAccuracy).toFixed(0)}% SIG
                   </span>
                 )}
-                {(signal as any).traderStreakDays > 0 && (
+                {(signal.traderStreakDays ?? 0) > 0 && (
                   <span className="text-[8px] font-extrabold tracking-wider text-accent border border-accent/40 px-1.5 py-0.5">
-                    🔥 {(signal as any).traderStreakDays}D
+                    🔥 {signal.traderStreakDays}D
                   </span>
                 )}
               </div>
               <div className="text-muted-foreground text-[10px] font-mono">@{signal.traderHandle} · REP {signal.traderRepScore.toFixed(0)}</div>
-              {((signal as any).traderWalletAddress || (signal as any).txHash) && (
+              {(signal.traderWalletAddress || signal.txHash) && (
                 <div className="mt-1.5">
                   <WalletBadge
-                    address={(signal as any).traderWalletAddress}
-                    txHash={(signal as any).txHash}
+                    address={signal.traderWalletAddress ?? undefined}
+                    txHash={signal.txHash ?? undefined}
                     compact
                   />
                 </div>
@@ -317,7 +327,7 @@ function SignalCard({ signal, livePrice }: { signal: SignalFull; livePrice: Live
       {/* Footer */}
       <div className="px-5 py-3 flex items-center gap-4 border-t border-border/50">
         <button
-          onClick={() => { if (!liked) { likeSignal({ signalId: signal.id }); setLiked(true); } }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!liked) { likeSignal({ signalId: signal.id }); setLiked(true); } }}
           className={`flex items-center gap-1.5 bg-transparent border-none cursor-pointer text-xs font-semibold ${
             liked ? "text-accent" : "text-muted-foreground hover:text-white"
           }`}
@@ -325,14 +335,14 @@ function SignalCard({ signal, livePrice }: { signal: SignalFull; livePrice: Live
           ♥ {signal.likeCount + (liked ? 1 : 0)}
         </button>
         <button
-          onClick={() => setShowChart(c => !c)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowChart(c => !c); }}
           className="flex items-center gap-1 bg-transparent border border-border/50 text-muted-foreground px-3 py-1.5 text-[9px] font-extrabold cursor-pointer tracking-wider hover:border-accent/50 hover:text-accent transition-colors"
         >
           {showChart ? "▲ HIDE CHART" : "▼ SHOW CHART"}
         </button>
-        <button className="ml-auto bg-transparent border border-accent/50 text-accent px-4 py-1.5 text-[10px] font-extrabold cursor-pointer tracking-wider hover:bg-accent hover:text-background transition-colors">
-          FOLLOW SIGNAL →
-        </button>
+        <span className="ml-auto bg-transparent border border-accent/50 text-accent px-4 py-1.5 text-[10px] font-extrabold tracking-wider hover:bg-accent hover:text-background transition-colors">
+          ANALYZE TRADER →
+        </span>
       </div>
     </div>
   );
@@ -355,7 +365,7 @@ function SignalAccuracyCard({ signals }: { signals: SignalFull[] }) {
   for (const s of signals) {
     const key = s.traderHandle;
     const existing = traderMap.get(key);
-    const acc = (s as any).traderSignalAccuracy ?? 0;
+    const acc = s.traderSignalAccuracy ?? 0;
     if (!existing) {
       traderMap.set(key, {
         traderUsername: s.traderUsername,
@@ -486,15 +496,19 @@ function SodexFillsStrip({ symbol }: { symbol: string }) {
 export default function Signals() {
   const [asset, setAsset] = useState("All");
   const [side, setSide] = useState<SideFilter>("All");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  // Default to "open" so the page surfaces only live setups (mirrors the API
+  // default once `traderId` is unset). Users can flip to all/hit/stopped.
+  const [status, setStatus] = useState<StatusFilter>("open");
   const [minConfidence, setMinConfidence] = useState(0);
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [eliteOnly, setEliteOnly] = useState(true);
 
   const params = {
     asset: asset !== "All" ? asset : undefined,
     side: side !== "All" ? (side as "LONG" | "SHORT") : undefined,
-    status: status !== "all" ? status : undefined,
+    status,
     minConfidence: minConfidence > 0 ? minConfidence : undefined,
+    eliteOnly,
     limit: 20,
     offset: 0,
   };
@@ -555,6 +569,21 @@ export default function Signals() {
               <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Live Sodex" />
             </div>
           )}
+          <button
+            onClick={() => setEliteOnly(v => !v)}
+            data-testid="toggle-elite-only"
+            title={eliteOnly
+              ? "Showing only DIAMOND/GOLD traders or 30d PnL ≥ $5K. Click to include moderate traders."
+              : "Showing all traders. Click to limit to elite (DIAMOND/GOLD or 30d PnL ≥ $5K)."}
+            className={`flex items-center gap-2 border px-3 py-1.5 text-[10px] font-extrabold tracking-wider cursor-pointer transition-colors ${
+              eliteOnly
+                ? "border-accent text-accent bg-accent/10 hover:bg-accent/15"
+                : "border-border text-muted-foreground hover:text-white hover:border-white/40"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${eliteOnly ? "bg-accent" : "bg-muted-foreground"}`} />
+            ELITE ONLY {eliteOnly ? "ON" : "OFF"}
+          </button>
           <div className="flex items-center gap-0 border border-border">
             {(["grid", "list"] as const).map(v => (
               <button key={v} onClick={() => setView(v)}

@@ -6,7 +6,7 @@ import {
 import type { FeedItem } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { WalletBadge } from "@/components/WalletBadge";
 import { useFeedStream } from "@/lib/sse";
@@ -145,14 +145,18 @@ function CommentSection({ postType, postId }: { postType: PostType; postId: numb
 
 function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
   const { mutate: likeTrade } = useLikeTrade();
+  const [, navigate] = useLocation();
   const [liked, setLiked] = useState(false);
   const isLong = post.side === "LONG";
   const pnlNum = Number(post.pnlUsd);
   const pnlPctNum = Number(post.pnlPct);
   const isWin = pnlNum >= 0;
+  const profileHref = `/traders/${post.traderId}?highlightTradeId=${post.id}`;
 
   return (
-    <div className="border-t border-border py-6" data-testid={`feed-trade-${post.id}`}>
+    <div role="link" tabIndex={0} onClick={() => navigate(profileHref)}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate(profileHref); }}
+      className="border-t border-border py-6 hover:bg-card/30 transition-colors cursor-pointer" data-testid={`feed-trade-${post.id}`}>
       <div className="flex gap-4">
         <RepCircle score={post.traderRepScore} />
         <div className="flex-1 min-w-0">
@@ -161,7 +165,7 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <Tag label="WIN" accent={isWin} danger={!isWin} />
             {post.isOnChainVerified && <Tag label="ON-CHAIN ✓" accent />}
-            {(post as any).traderIsAutoDiscovered && (
+            {post.traderIsAutoDiscovered && (
               <span className="bg-blue-500/15 text-blue-400 border border-blue-400/40 px-1.5 py-0.5 text-[9px] font-black tracking-wider">DISCOVERED</span>
             )}
             <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt)}</span>
@@ -202,21 +206,21 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
             </div>
           </div>
 
-          {((post as any).txHash || (post as any).traderWalletAddress) && (
+          {(post.txHash || post.traderWalletAddress) && (
             <div className="flex items-center gap-2 mb-2 px-3 py-2 border border-accent/15 bg-accent/[0.03]">
               <WalletBadge
-                address={(post as any).traderWalletAddress}
-                txHash={(post as any).txHash}
+                address={post.traderWalletAddress ?? undefined}
+                txHash={post.txHash ?? undefined}
               />
               <span className="text-muted-foreground text-[9px] ml-auto font-bold tracking-wider">VALUECHAIN VERIFIED</span>
             </div>
           )}
-          {(post as any).sodexTradeId && (
+          {post.sodexTradeId && (
             <div className="flex items-center gap-2 mb-3 px-3 py-1.5 border border-accent/30 bg-accent/8"
               style={{ background: "rgba(212,255,0,0.04)", borderColor: "rgba(212,255,0,0.25)" }}>
               <span className="text-accent text-[9px] font-extrabold tracking-widest">SODEX</span>
               <span className="text-accent/60 font-mono text-[10px]">
-                #{String((post as any).sodexTradeId).slice(0, 8)}...
+                #{String(post.sodexTradeId).slice(0, 8)}...
               </span>
               <span className="text-[9px] font-extrabold tracking-wider ml-auto"
                 style={{ color: "#D4FF00" }}>
@@ -228,23 +232,28 @@ function WinPost({ post }: { post: NonNullable<FeedItem["trade"]> }) {
           <div className="flex items-center gap-5 mb-2">
             <button
               data-testid={`like-trade-${post.id}`}
-              onClick={() => { likeTrade({ tradeId: post.id }); setLiked(true); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); likeTrade({ tradeId: post.id }); setLiked(true); }}
               className={`bg-transparent border-none cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${liked ? "text-accent" : "text-muted-foreground"}`}
             >
               ♥ {(post.likes ?? post.likeCount ?? 0) + (liked ? 1 : 0)}
             </button>
-            <Button className="ml-auto bg-accent text-background hover:bg-accent/90 px-4 py-1.5 font-extrabold text-xs tracking-wide h-auto">
+            <Button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              className="ml-auto bg-accent text-background hover:bg-accent/90 px-4 py-1.5 font-extrabold text-xs tracking-wide h-auto">
               COPY TRADE
             </Button>
           </div>
-          <CommentSection postType="trade" postId={post.id} />
+          <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <CommentSection postType="trade" postId={post.id} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
+function SignalPost({ post, moderate = false }: { post: NonNullable<FeedItem["signal"]>; moderate?: boolean }) {
+  const [, navigate] = useLocation();
   const { mutate: likeSignal } = useLikeSignal();
   const [liked, setLiked] = useState(false);
   const isLong = post.side === "LONG";
@@ -255,22 +264,43 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
     ? ((targetN - entryN) / (entryN - stopN)).toFixed(1)
     : "—";
 
+  const profileHref = `/traders/${post.traderId}?highlightSignalId=${post.id}`;
+  // "moderate" — signal from a non-elite trader, surfaced on the Feed (not
+  // the Signals page). Renders with neutral border + clear MODERATE badge so
+  // users can tell the difference between elite-grade and crowd signals.
+
   return (
-    <div className="border-t border-border py-6" data-testid={`feed-signal-${post.id}`}>
+    <div role="link" tabIndex={0} onClick={() => navigate(profileHref)}
+      onKeyDown={(e) => { if (e.key === "Enter") navigate(profileHref); }}
+      className={`border-t py-6 cursor-pointer transition-colors ${
+      moderate ? "border-border/60 hover:bg-card/30 bg-muted/[0.02]" : "border-border hover:bg-card/30"
+    }`} data-testid={`feed-${moderate ? "moderate-signal" : "signal"}-${post.id}`}>
       <div className="flex gap-4">
         <RepCircle score={post.traderRepScore} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-2 flex-wrap">
             <span className="text-white font-extrabold text-sm tracking-wide">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
-            <span className="bg-transparent border border-accent/60 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">SIGNAL</span>
-            {(post as any).traderIsAutoDiscovered && (
+            {moderate ? (
+              <span className="bg-transparent border border-muted-foreground/50 text-muted-foreground px-2 py-0.5 text-[10px] font-bold tracking-wider"
+                title="Signal from a non-elite trader. Promoted to the Signals page once the trader hits DIAMOND/GOLD or 30d PnL ≥ $5K.">
+                MODERATE SIGNAL
+              </span>
+            ) : (
+              <span className="bg-transparent border border-accent/60 text-accent px-2 py-0.5 text-[10px] font-bold tracking-wider">SIGNAL</span>
+            )}
+            <span className={`border px-1.5 py-0.5 text-[9px] font-black tracking-wider ${
+              post.traderTier === "DIAMOND" ? "border-accent text-accent" :
+              post.traderTier === "GOLD" ? "border-yellow-400/60 text-yellow-400" :
+              "border-border text-muted-foreground"
+            }`}>{post.traderTier}</span>
+            {post.traderIsAutoDiscovered && (
               <span className="bg-blue-500/15 text-blue-400 border border-blue-400/40 px-1.5 py-0.5 text-[9px] font-black tracking-wider">DISCOVERED</span>
             )}
             <span className="text-muted-foreground text-[11px] ml-auto">{timeAgo(post.createdAt ?? "")}</span>
           </div>
-          {((post as any).traderWalletAddress || (post as any).txHash) && (
-            <div className="mb-3"><WalletBadge address={(post as any).traderWalletAddress} txHash={(post as any).txHash} /></div>
+          {(post.traderWalletAddress || post.txHash) && (
+            <div className="mb-3"><WalletBadge address={post.traderWalletAddress ?? undefined} txHash={post.txHash ?? undefined} /></div>
           )}
 
           {post.reasoning && (
@@ -309,16 +339,21 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
           <div className="flex items-center gap-5 mb-2">
             <button
               data-testid={`like-signal-${post.id}`}
-              onClick={() => { likeSignal({ signalId: post.id }); setLiked(true); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); likeSignal({ signalId: post.id }); setLiked(true); }}
               className={`bg-transparent border-none cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${liked ? "text-accent" : "text-muted-foreground"}`}
             >
               ♥ {post.likeCount + (liked ? 1 : 0)}
             </button>
-            <Button variant="outline" className="ml-auto border-accent text-accent hover:bg-accent hover:text-background px-4 py-1.5 font-extrabold text-xs tracking-wide h-auto">
-              FOLLOW SIGNAL
+            <Button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              variant="outline"
+              className="ml-auto border-accent text-accent hover:bg-accent hover:text-background px-4 py-1.5 font-extrabold text-xs tracking-wide h-auto">
+              {moderate ? "ANALYZE TRADER" : "FOLLOW SIGNAL"}
             </Button>
           </div>
-          <CommentSection postType="signal" postId={post.id} />
+          <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <CommentSection postType="signal" postId={post.id} />
+          </div>
         </div>
       </div>
     </div>
@@ -326,12 +361,25 @@ function SignalPost({ post }: { post: NonNullable<FeedItem["signal"]> }) {
 }
 
 function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
+  const [, navigate] = useLocation();
   const pnlNum = Number(post.pnlUsd);
   const pnlPctNum = Number(post.pnlPct);
   const isAnon = post.isAnonymous;
+  // Every feed card drills into the trader profile. Anonymity is just a UI
+  // affordance on the card itself (masked username + rep) — the public
+  // trader profile is the canonical drill-down for every post type. We don't
+  // pass a highlight query param because TraderProfile only highlights
+  // trade/signal rows — losses surface on the Pain Room.
+  const targetHref = `/traders/${post.traderId}`;
+  const linkProps = {
+    role: "link",
+    tabIndex: 0,
+    onClick: () => navigate(targetHref),
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") navigate(targetHref); },
+  };
 
   return (
-    <div className="border-t border-destructive/20 py-6 bg-destructive/[0.02]">
+    <div {...linkProps} className="border-t border-destructive/20 py-6 bg-destructive/[0.02] hover:bg-destructive/[0.04] cursor-pointer transition-colors">
       <div className="flex gap-4">
         <div className="w-10 h-10 rounded-full border-[1.5px] border-destructive/40 flex items-center justify-center shrink-0">
           <span className="text-destructive text-[11px] font-bold font-mono">
@@ -377,13 +425,15 @@ function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
             <span className="text-muted-foreground text-[11px] font-bold">
               💬 {post.breakdownCount} breakdown{post.breakdownCount !== 1 ? "s" : ""}
             </span>
-            <Link href="/pain-room">
+            <Link href="/pain-room" onClick={(e) => e.stopPropagation()}>
               <button className="ml-auto text-[10px] font-extrabold tracking-wider border border-destructive/40 text-destructive px-4 py-1.5 hover:bg-destructive/10 transition-colors bg-transparent cursor-pointer">
                 {post.isResolved ? "VIEW BREAKDOWN" : "GIVE BREAKDOWN"}
               </button>
             </Link>
           </div>
-          <CommentSection postType="pain_room" postId={post.id} />
+          <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <CommentSection postType="pain_room" postId={post.id} />
+          </div>
         </div>
       </div>
     </div>
@@ -391,14 +441,26 @@ function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
 }
 
 function WhalePost({ post }: { post: NonNullable<FeedItem["whale"]> }) {
+  const [, navigate] = useLocation();
   const sizeNum = Number(post.positionSizeUsd);
   const isLong = post.side === "LONG";
   const sizeFmt = sizeNum >= 1000000
     ? `$${(sizeNum / 1000000).toFixed(1)}M`
     : `$${(sizeNum / 1000).toFixed(0)}K`;
 
+  const traderId = post.traderId;
+  const tradeId = post.tradeId;
+  const profileHref = traderId
+    ? `/traders/${traderId}${tradeId ? `?highlightTradeId=${tradeId}` : ""}`
+    : null;
   return (
-    <div className="border-t border-border py-5">
+    <div
+      {...(profileHref ? {
+        role: "link", tabIndex: 0,
+        onClick: () => navigate(profileHref),
+        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") navigate(profileHref); },
+      } : {})}
+      className={`border-t border-border py-5 ${profileHref ? "hover:bg-card/30 transition-colors cursor-pointer" : ""}`}>
       <div className="flex gap-4 items-center">
         <div className="w-10 h-10 border-[1.5px] border-border flex items-center justify-center shrink-0">
           <span className="text-muted-foreground text-[10px] font-black">🐋</span>
@@ -408,8 +470,8 @@ function WhalePost({ post }: { post: NonNullable<FeedItem["whale"]> }) {
             <span className="text-white font-extrabold text-sm">{post.traderUsername}</span>
             <span className="text-muted-foreground text-xs font-mono">@{post.traderHandle}</span>
             <span className="bg-transparent border border-border text-muted-foreground px-2 py-0.5 text-[10px] font-bold tracking-wider">WHALE</span>
-            {(post as any).traderWalletAddress && (
-              <WalletBadge address={(post as any).traderWalletAddress} compact />
+            {post.traderWalletAddress && (
+              <WalletBadge address={post.traderWalletAddress} compact />
             )}
             <span className="text-muted-foreground text-[11px] ml-auto">{post.timeAgo}</span>
           </div>
@@ -582,6 +644,12 @@ export default function Feed() {
             }
             if (item.type === "signal" && item.signal) {
               return <SignalPost key={`signal-${item.signal.id ?? idx}`} post={item.signal} />;
+            }
+            if (item.type === "moderate_signal") {
+              const mod = item.moderateSignal ?? item.signal;
+              if (mod) {
+                return <SignalPost key={`mod-signal-${mod.id ?? idx}`} post={mod} moderate />;
+              }
             }
             if (item.type === "loss" && item.loss) {
               return <LossPost key={`loss-${item.loss.id ?? idx}`} post={item.loss} />;
