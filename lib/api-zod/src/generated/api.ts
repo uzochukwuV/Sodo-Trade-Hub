@@ -1157,6 +1157,60 @@ export const ResolveIntentBody = zod.object({
 });
 
 /**
+ * @summary Combined Sodex balances + positions + open orders for one wallet
+ */
+export const getAccountStatePathAddrRegExp = new RegExp("^0x[0-9a-fA-F]{40}$");
+
+export const GetAccountStateParams = zod.object({
+  addr: zod.coerce.string().regex(getAccountStatePathAddrRegExp),
+});
+
+export const GetAccountStateResponse = zod.object({
+  balances: zod.unknown().optional(),
+  positions: zod.unknown().optional(),
+  openOrders: zod.unknown().optional(),
+  fetchedAt: zod.number().optional(),
+});
+
+/**
+ * @summary Sodex trade execution history for a wallet
+ */
+export const getAccountTradesPathAddrRegExp = new RegExp("^0x[0-9a-fA-F]{40}$");
+
+export const GetAccountTradesParams = zod.object({
+  addr: zod.coerce.string().regex(getAccountTradesPathAddrRegExp),
+});
+
+export const getAccountTradesQueryLimitDefault = 50;
+
+export const GetAccountTradesQueryParams = zod.object({
+  limit: zod.coerce.number().default(getAccountTradesQueryLimitDefault),
+});
+
+export const GetAccountTradesResponse = zod.object({
+  trades: zod.array(zod.unknown()).optional(),
+});
+
+/**
+ * @summary Sodex order history for a wallet
+ */
+export const getAccountOrdersPathAddrRegExp = new RegExp("^0x[0-9a-fA-F]{40}$");
+
+export const GetAccountOrdersParams = zod.object({
+  addr: zod.coerce.string().regex(getAccountOrdersPathAddrRegExp),
+});
+
+export const getAccountOrdersQueryLimitDefault = 50;
+
+export const GetAccountOrdersQueryParams = zod.object({
+  limit: zod.coerce.number().default(getAccountOrdersQueryLimitDefault),
+});
+
+export const GetAccountOrdersResponse = zod.object({
+  orders: zod.array(zod.unknown()).optional(),
+});
+
+/**
  * @summary Get top traders ranked by 30d PNL
  */
 export const getLeaderboardQueryLimitDefault = 10;

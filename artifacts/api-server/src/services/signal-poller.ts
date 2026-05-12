@@ -1,12 +1,8 @@
-import { db, tradersTable, tradesTable, signalsTable } from "@workspace/db";
+import { db, tradersTable } from "@workspace/db";
 import { eq, isNotNull, and } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { fetchPositions, type SodexPosition } from "./leaderboard-tracker";
-import { notifyTraderOpenedPosition, notifyTraderClosedPosition, notifyIntentAlignment } from "./alerts";
-
-function uiSymbol(sodexSymbol: string): string {
-  return sodexSymbol.replace("-USD", "/USDT");
-}
+import { ingestPosition } from "./position-ingest";
 
 export type PollerResult = {
   tradersChecked: number;
@@ -15,10 +11,16 @@ export type PollerResult = {
 };
 
 /**
- * For each tracked trader, diff positions/history against lastSyncedPositionId.
- * - New CLOSED position (active=false) → insert as a `trade` row (real realized PnL).
- * - New OPEN  position (active=true)  → insert as a `signal` row (entry alert).
- * Drives the social feed AND the copy-trading automation triggers.
+ * REST-based safety net for position ingest.
+ *
+ * The PRIMARY ingest path is now the WS `accountUpdate` / `accountTrade`
+ * subscriptions registered per tracked wallet (see services/sodex-ws.ts +
+ * the bootstrap in src/index.ts). This poller exists to recover anything
+ * missed during WS downtime and runs at a relaxed cadence (default 5 min).
+ *
+ * Both paths funnel through `ingestPosition()` so the dedup logic
+ * (ON CONFLICT on sodexTradeId / sodexPositionId) is identical — and
+ * `lastSyncedPositionId` is still advanced here so the poller stays cheap.
  */
 export async function runSignalPollerOnce(): Promise<PollerResult> {
   const traders = await db.select().from(tradersTable).where(
@@ -44,95 +46,14 @@ export async function runSignalPollerOnce(): Promise<PollerResult> {
     if (newPositions.length === 0) continue;
 
     let newHigh = lastId;
-
     for (const p of newPositions) {
       if (p.id > newHigh) newHigh = p.id;
-      const symbol = uiSymbol(p.symbol);
-      const side = p.positionSide;
-      const isClosed = !p.active && parseFloat(p.cumClosedSize || "0") > 0;
-      const isOpen = p.active && parseFloat(p.size || "0") > 0;
-
-      try {
-        if (isClosed) {
-          const entry = parseFloat(p.avgEntryPrice);
-          const exit  = parseFloat(p.avgClosePrice);
-          const pnl   = parseFloat(p.realizedPnL);
-          const closedSize = parseFloat(p.cumClosedSize);
-          const notional = entry * closedSize;
-          const pnlPct = notional > 0 ? (pnl / notional) * 100 * p.leverage : 0;
-          const inserted = await db.insert(tradesTable).values({
-            traderId: trader.id,
-            asset: symbol,
-            side,
-            entryPrice: entry.toFixed(8),
-            exitPrice: exit.toFixed(8),
-            pnlUsd: pnl.toFixed(2),
-            pnlPct: pnlPct.toFixed(4),
-            positionSize: notional.toFixed(4),
-            leverage: p.leverage,
-            isVerified: true,
-            isOnChainVerified: true,
-            sodexTradeId: String(p.id),
-            comment: pnl > 0
-              ? `Closed ${side} ${symbol} ${p.leverage}x for +$${pnl.toFixed(0)}`
-              : `Stopped out ${side} ${symbol} ${p.leverage}x for -$${Math.abs(pnl).toFixed(0)}`,
-            openedAt: p.createdAt ? new Date(p.createdAt) : null,
-            closedAt: new Date(p.updatedAt),
-          }).onConflictDoNothing({ target: [tradesTable.traderId, tradesTable.sodexTradeId] }).returning();
-          if (inserted.length > 0) {
-            result.newTrades++;
-            logger.info({ event: "poller.new_trade", trader: trader.username, symbol, pnl, sodexId: p.id }, "imported new closed trade");
-            // Fan-out: notify followers of this trader.
-            await notifyTraderClosedPosition(trader.id, {
-              username: trader.username,
-              asset: symbol,
-              side,
-              pnlUsd: pnl,
-              sodexTradeId: String(p.id),
-              walletAddress: trader.walletAddress,
-            });
-          }
-        } else if (isOpen) {
-          const entry = parseFloat(p.avgEntryPrice);
-          const targetPct = side === "LONG" ? 1.05 : 0.95;
-          const stopPct   = side === "LONG" ? 0.97 : 1.03;
-          const inserted = await db.insert(signalsTable).values({
-            traderId: trader.id,
-            asset: symbol,
-            side,
-            entryPrice: entry.toFixed(8),
-            targetPrice: (entry * targetPct).toFixed(8),
-            stopLoss: (entry * stopPct).toFixed(8),
-            confidence: 75,
-            reasoning: `Live entry detected from ${trader.username} on Sodex perps · ${p.leverage}x ${p.marginMode}`,
-            status: "open",
-            isActive: true,
-            sodexPositionId: String(p.id),
-          }).onConflictDoNothing({ target: [signalsTable.traderId, signalsTable.sodexPositionId] }).returning();
-          if (inserted.length > 0) {
-            result.newSignals++;
-            logger.info({ event: "poller.new_signal", trader: trader.username, symbol, side, entry, sodexId: p.id }, "imported new open position as signal");
-            // Fan-out: alert followers + alert any user with an open intent that aligns with this entry.
-            await notifyTraderOpenedPosition(trader.id, {
-              username: trader.username,
-              asset: symbol,
-              side,
-              entryPrice: entry,
-              leverage: p.leverage,
-              sodexPositionId: String(p.id),
-              walletAddress: trader.walletAddress,
-            });
-            await notifyIntentAlignment({
-              asset: symbol,
-              side,
-              tradedByTraderId: trader.id,
-              tradedByUsername: trader.username,
-            });
-          }
-        }
-      } catch (err) {
-        logger.warn({ event: "poller.insert_fail", trader: trader.username, sodexId: p.id, err: String(err) }, "insert failed");
-      }
+      const r = await ingestPosition(
+        { id: trader.id, username: trader.username, walletAddress: trader.walletAddress },
+        p,
+      );
+      if (r.kind === "trade") result.newTrades++;
+      else if (r.kind === "signal") result.newSignals++;
     }
 
     if (newHigh > lastId) {
@@ -151,11 +72,12 @@ export async function runSignalPollerOnce(): Promise<PollerResult> {
 
 let _pollerInterval: NodeJS.Timeout | null = null;
 
-export function startSignalPoller(intervalMs = 30_000) {
+/** Default cadence is 5 min — the WS account streams are the primary ingest path. */
+export function startSignalPoller(intervalMs = 5 * 60_000) {
   if (_pollerInterval) return;
-  setTimeout(() => { runSignalPollerOnce().catch(err => logger.error({ err }, "initial poller run failed")); }, 30_000);
+  setTimeout(() => { runSignalPollerOnce().catch(err => logger.error({ err }, "initial poller run failed")); }, 60_000);
   _pollerInterval = setInterval(() => {
     runSignalPollerOnce().catch(err => logger.error({ err }, "scheduled poller run failed"));
   }, intervalMs);
-  logger.info({ event: "poller.started", intervalMs }, "signal poller started");
+  logger.info({ event: "poller.started", intervalMs, role: "safety-net" }, "signal poller started (REST safety net)");
 }

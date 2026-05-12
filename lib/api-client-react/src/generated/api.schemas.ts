@@ -978,6 +978,29 @@ export type ResolveIntentBody = {
   outcome: ResolveIntentBodyOutcome;
 };
 
+export type GetAccountState200 = {
+  balances?: unknown;
+  positions?: unknown;
+  openOrders?: unknown;
+  fetchedAt?: number;
+};
+
+export type GetAccountTradesParams = {
+  limit?: number;
+};
+
+export type GetAccountTrades200 = {
+  trades?: unknown[];
+};
+
+export type GetAccountOrdersParams = {
+  limit?: number;
+};
+
+export type GetAccountOrders200 = {
+  orders?: unknown[];
+};
+
 export type GetLeaderboardParams = {
   limit?: number;
 };

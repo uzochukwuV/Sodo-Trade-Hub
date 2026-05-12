@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useFeedStream } from "@/lib/sse";
 
 type MarketActivity = {
   symbol: string;
@@ -63,9 +64,25 @@ export default function Markets() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15_000);
+    // Slow REST refresh as a safety net; live updates come via SSE below.
+    const t = setInterval(load, 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // Live price ticks from the SSE stream patch the in-memory snapshot in
+  // place — no re-fetch, no flicker, ~1Hz per symbol.
+  useFeedStream({
+    onPriceTick: (e) => {
+      setActivity(prev => {
+        const idx = prev.findIndex(a => a.symbol === e.symbol);
+        if (idx < 0) return prev;
+        const next = prev.slice();
+        next[idx] = { ...next[idx], markPrice: e.markPrice, changePct24h: e.changePct24h };
+        return next;
+      });
+      setFetchedAt(new Date(e.ts).toISOString());
+    },
+  });
 
   const sorted = [...activity].sort((a, b) => {
     switch (sortBy) {

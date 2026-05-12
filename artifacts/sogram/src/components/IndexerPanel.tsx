@@ -9,6 +9,14 @@ type Status = {
   isRunning: boolean;
   lastError: string | null;
   totalAutoDiscovered: number;
+  ws?: {
+    connected: boolean;
+    lastMessageAt: string | null;
+    lastConnectedAt: string | null;
+    subscriptionCount: number;
+    reconnectCount: number;
+    lastError: string | null;
+  };
 };
 
 type Tracked = {
@@ -96,7 +104,7 @@ export function IndexerPanel() {
         <div>
           <div className="font-black text-sm tracking-wide text-white">SODEX LEADERBOARD TRACKER</div>
           <div className="text-muted-foreground text-[10px] font-bold tracking-wider mt-0.5">
-            AUTO-IMPORTS TOP TRADERS · POLLS POSITIONS EVERY 60S FOR LIVE SIGNALS
+            AUTO-IMPORTS TOP TRADERS · WS ACCOUNT STREAMS PRIMARY · 5-MIN REST SAFETY NET
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -127,6 +135,17 @@ export function IndexerPanel() {
         <Stat label="LAST IMPORTED" value={status?.walletsDiscovered?.toString() ?? "0"} mono />
         <Stat label="LAST SYNC" value={timeAgo(status?.lastRunAt ?? null)} />
         <Stat label="STATUS" value={status?.lastError ? "ERROR" : "OK"} accent={!status?.lastError} />
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 mb-5 pb-5 border-b border-border">
+        <Stat
+          label="SODEX WS"
+          value={status?.ws?.connected ? "CONNECTED" : "OFFLINE"}
+          accent={status?.ws?.connected}
+        />
+        <Stat label="WS LAST MSG" value={timeAgo(status?.ws?.lastMessageAt ?? null)} />
+        <Stat label="SUBSCRIPTIONS" value={String(status?.ws?.subscriptionCount ?? 0)} mono />
+        <Stat label="RECONNECTS" value={String(status?.ws?.reconnectCount ?? 0)} mono />
       </div>
 
       <div className="font-extrabold text-[11px] tracking-widest text-muted-foreground mb-3">

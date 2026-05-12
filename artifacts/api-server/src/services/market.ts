@@ -1,4 +1,6 @@
 import { logger } from "../lib/logger";
+import { getMarketActivity, getFillsFromSnapshot } from "./market-activity";
+import { getSymbolMeta } from "./sodex-rest";
 
 interface CacheEntry { data: unknown; expires: number }
 const _cache = new Map<string, CacheEntry>();
@@ -58,33 +60,32 @@ interface SodexTicker {
 
 const REVERSE = Object.fromEntries(Object.entries(SODEX_SYMBOL).map(([k, v]) => [v, k]));
 
+/**
+ * Now reads from the live WS-fed market snapshot (services/market-activity.ts).
+ * The snapshot is updated continuously from `allMiniTicker` + `allMarkPrice`
+ * with a 60s REST safety refresh, so prices are usually <1s old.
+ */
 export async function getMarketPrices(): Promise<MarketPrice[]> {
   const cached = getCached<MarketPrice[]>("prices");
   if (cached) return cached;
 
   try {
-    const res = await fetch(`${SODEX_BASE}/perps/markets/tickers`, {
-      signal: AbortSignal.timeout(8000),
-    });
-    const json = await res.json() as { code: number; data: SodexTicker[] };
-    if (json.code !== 0) throw new Error(`Sodex error ${json.code}`);
-
-    const prices = json.data
-      .filter(t => REVERSE[t.symbol])
-      .map(t => ({
-        symbol:       REVERSE[t.symbol],
-        price:        parseFloat(t.markPrice),
-        change24h:    t.changePct,
-        openInterest: parseFloat(t.openInterest),
-        fundingRate:  parseFloat(t.fundingRate),
-        markPrice:    parseFloat(t.markPrice),
-        indexPrice:   parseFloat(t.indexPrice),
+    const activity = await getMarketActivity();
+    const prices = activity
+      .filter(a => REVERSE[a.symbol])
+      .map(a => ({
+        symbol:       REVERSE[a.symbol],
+        price:        a.markPrice,
+        change24h:    a.changePct24h,
+        openInterest: a.openInterestUsd > 0 && a.markPrice > 0 ? a.openInterestUsd / a.markPrice : 0,
+        fundingRate:  a.fundingRate,
+        markPrice:    a.markPrice,
+        indexPrice:   a.indexPrice,
       }));
-
-    setCached("prices", prices, 30_000);
+    setCached("prices", prices, 5_000);
     return prices;
   } catch (err) {
-    logger.warn({ err }, "Sodex price fetch failed, using stale/empty");
+    logger.warn({ err }, "live market snapshot read failed, using stale/empty");
     return getCached<MarketPrice[]>("prices") ?? [];
   }
 }
@@ -243,8 +244,32 @@ interface SodexRawTrade {
   q: string;
 }
 
+/**
+ * Primary path: read the WS-maintained rolling fill window from market-activity.
+ * REST is only consulted when WS has no data for the symbol (fresh boot,
+ * symbol the WS feed has never quoted, or recovery after a long disconnect).
+ *
+ * The `tradeId` for snapshot-derived fills is synthesised as `ts:price:qty`
+ * since WS trade frames don't always carry the same numeric ID the REST feed
+ * uses. `verifySodexTrade` falls back to the REST path when given a numeric
+ * Sodex trade ID, so verification is unaffected.
+ */
 export async function getFills(symbol: string, limit = 50): Promise<SodexFill[]> {
   const sodexSym = SODEX_SYMBOL[symbol] ?? symbol;
+  const uiSym   = REVERSE[sodexSym] ?? sodexSym;
+
+  const live = getFillsFromSnapshot(sodexSym, limit);
+  if (live.length > 0) {
+    return live.map(f => ({
+      tradeId:  `${f.ts}:${f.price}:${f.qty}`,
+      time:     f.ts,
+      symbol:   uiSym,
+      side:     f.side,
+      price:    f.price,
+      quantity: f.qty,
+    }));
+  }
+
   const key = `fills:${sodexSym}`;
   const cached = getCached<SodexFill[]>(key);
   if (cached) return cached.slice(0, limit);
@@ -299,11 +324,15 @@ export async function verifySodexTrade(
       return { verified: false, reason: `Side mismatch: expected ${sodexSide}, got ${match.side}` };
     }
 
+    // Tolerance derived from the symbol's tick size (≥ 5 ticks or 2% — whichever is smaller).
+    const meta = getSymbolMeta(SODEX_SYMBOL[symbol] ?? symbol);
+    const tickTol = meta && claimedPrice > 0 ? Math.max((meta.tickSize * 5) / claimedPrice, 0.001) : 0.02;
+    const tolerance = Math.min(tickTol, 0.02);
     const priceDiff = Math.abs(match.price - claimedPrice) / claimedPrice;
-    if (priceDiff > 0.02) {
+    if (priceDiff > tolerance) {
       return {
         verified: false,
-        reason: `Price mismatch: Sodex fill at ${match.price}, claimed ${claimedPrice} (${(priceDiff * 100).toFixed(2)}% diff > 2%)`,
+        reason: `Price mismatch: Sodex fill at ${match.price}, claimed ${claimedPrice} (${(priceDiff * 100).toFixed(2)}% diff > ${(tolerance * 100).toFixed(2)}%)`,
       };
     }
 

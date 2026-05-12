@@ -24,6 +24,10 @@ tags:
     description: Analytics and market data
   - name: leaderboard
     description: Leaderboard operations
+  - name: stream
+    description: Server-Sent Events realtime feed
+  - name: accounts
+    description: Sodex per-wallet REST passthroughs
 
 paths:
   /healthz:
@@ -1030,6 +1034,103 @@ paths:
       responses:
         "200":
           description: Intent resolved
+
+  /stream/feed:
+    get:
+      operationId: streamFeed
+      tags: [stream]
+      summary: Server-Sent Events stream of realtime activity
+      description: |
+        Long-lived `text/event-stream` response. Three event types are emitted:
+
+        - `price_tick`  — `{ symbol, displaySymbol, markPrice, changePct24h, ts }`
+                          throttled to ~1 Hz per symbol from the live market snapshot.
+        - `new_trade`   — `{ tradeId, traderId, username, asset, side, pnlUsd, leverage, ts }`
+                          fired when a closed Sodex position is ingested into our `trades` table.
+        - `new_signal`  — `{ signalId, traderId, username, asset, side, entryPrice, leverage, ts }`
+                          fired when a new open position is ingested into our `signals` table.
+
+        A `: keep-alive` comment is sent every 25s so proxies don't drop the connection.
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /accounts/{addr}/state:
+    get:
+      operationId: getAccountState
+      tags: [accounts]
+      summary: Combined Sodex balances + positions + open orders for one wallet
+      parameters:
+        - name: addr
+          in: path
+          required: true
+          schema: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
+      responses:
+        "200":
+          description: Aggregated account state passthrough
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balances:   {}
+                  positions:  {}
+                  openOrders: {}
+                  fetchedAt:  { type: integer }
+
+  /accounts/{addr}/trades:
+    get:
+      operationId: getAccountTrades
+      tags: [accounts]
+      summary: Sodex trade execution history for a wallet
+      parameters:
+        - name: addr
+          in: path
+          required: true
+          schema: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Trades passthrough
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trades:
+                    type: array
+                    items: {}
+
+  /accounts/{addr}/orders:
+    get:
+      operationId: getAccountOrders
+      tags: [accounts]
+      summary: Sodex order history for a wallet
+      parameters:
+        - name: addr
+          in: path
+          required: true
+          schema: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Orders passthrough
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items: {}
 
   /leaderboard:
     get:

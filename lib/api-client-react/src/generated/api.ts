@@ -32,6 +32,11 @@ import type {
   FeedResponse,
   FollowStatus,
   FollowTraderBody,
+  GetAccountOrders200,
+  GetAccountOrdersParams,
+  GetAccountState200,
+  GetAccountTrades200,
+  GetAccountTradesParams,
   GetAnalyticsMarket200,
   GetComments200,
   GetCommentsParams,
@@ -3800,6 +3805,403 @@ export const useResolveIntent = <
 > => {
   return useMutation(getResolveIntentMutationOptions(options));
 };
+
+/**
+ * Long-lived `text/event-stream` response. Three event types are emitted:
+
+- `price_tick`  — `{ symbol, displaySymbol, markPrice, changePct24h, ts }`
+                  throttled to ~1 Hz per symbol from the live market snapshot.
+- `new_trade`   — `{ tradeId, traderId, username, asset, side, pnlUsd, leverage, ts }`
+                  fired when a closed Sodex position is ingested into our `trades` table.
+- `new_signal`  — `{ signalId, traderId, username, asset, side, entryPrice, leverage, ts }`
+                  fired when a new open position is ingested into our `signals` table.
+
+A `: keep-alive` comment is sent every 25s so proxies don't drop the connection.
+
+ * @summary Server-Sent Events stream of realtime activity
+ */
+export const getStreamFeedUrl = () => {
+  return `/api/stream/feed`;
+};
+
+export const streamFeed = async (options?: RequestInit): Promise<string> => {
+  return customFetch<string>(getStreamFeedUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStreamFeedQueryKey = () => {
+  return [`/api/stream/feed`] as const;
+};
+
+export const getStreamFeedQueryOptions = <
+  TData = Awaited<ReturnType<typeof streamFeed>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof streamFeed>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getStreamFeedQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof streamFeed>>> = ({
+    signal,
+  }) => streamFeed({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof streamFeed>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type StreamFeedQueryResult = NonNullable<
+  Awaited<ReturnType<typeof streamFeed>>
+>;
+export type StreamFeedQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Server-Sent Events stream of realtime activity
+ */
+
+export function useStreamFeed<
+  TData = Awaited<ReturnType<typeof streamFeed>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof streamFeed>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStreamFeedQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Combined Sodex balances + positions + open orders for one wallet
+ */
+export const getGetAccountStateUrl = (addr: string) => {
+  return `/api/accounts/${addr}/state`;
+};
+
+export const getAccountState = async (
+  addr: string,
+  options?: RequestInit,
+): Promise<GetAccountState200> => {
+  return customFetch<GetAccountState200>(getGetAccountStateUrl(addr), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAccountStateQueryKey = (addr: string) => {
+  return [`/api/accounts/${addr}/state`] as const;
+};
+
+export const getGetAccountStateQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAccountState>>,
+  TError = ErrorType<unknown>,
+>(
+  addr: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountState>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAccountStateQueryKey(addr);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountState>>> = ({
+    signal,
+  }) => getAccountState(addr, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!addr,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAccountState>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAccountStateQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountState>>
+>;
+export type GetAccountStateQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Combined Sodex balances + positions + open orders for one wallet
+ */
+
+export function useGetAccountState<
+  TData = Awaited<ReturnType<typeof getAccountState>>,
+  TError = ErrorType<unknown>,
+>(
+  addr: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountState>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAccountStateQueryOptions(addr, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Sodex trade execution history for a wallet
+ */
+export const getGetAccountTradesUrl = (
+  addr: string,
+  params?: GetAccountTradesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/accounts/${addr}/trades?${stringifiedParams}`
+    : `/api/accounts/${addr}/trades`;
+};
+
+export const getAccountTrades = async (
+  addr: string,
+  params?: GetAccountTradesParams,
+  options?: RequestInit,
+): Promise<GetAccountTrades200> => {
+  return customFetch<GetAccountTrades200>(
+    getGetAccountTradesUrl(addr, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAccountTradesQueryKey = (
+  addr: string,
+  params?: GetAccountTradesParams,
+) => {
+  return [`/api/accounts/${addr}/trades`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAccountTradesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAccountTrades>>,
+  TError = ErrorType<unknown>,
+>(
+  addr: string,
+  params?: GetAccountTradesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountTrades>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAccountTradesQueryKey(addr, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAccountTrades>>
+  > = ({ signal }) =>
+    getAccountTrades(addr, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!addr,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAccountTrades>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAccountTradesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountTrades>>
+>;
+export type GetAccountTradesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Sodex trade execution history for a wallet
+ */
+
+export function useGetAccountTrades<
+  TData = Awaited<ReturnType<typeof getAccountTrades>>,
+  TError = ErrorType<unknown>,
+>(
+  addr: string,
+  params?: GetAccountTradesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountTrades>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAccountTradesQueryOptions(addr, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Sodex order history for a wallet
+ */
+export const getGetAccountOrdersUrl = (
+  addr: string,
+  params?: GetAccountOrdersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/accounts/${addr}/orders?${stringifiedParams}`
+    : `/api/accounts/${addr}/orders`;
+};
+
+export const getAccountOrders = async (
+  addr: string,
+  params?: GetAccountOrdersParams,
+  options?: RequestInit,
+): Promise<GetAccountOrders200> => {
+  return customFetch<GetAccountOrders200>(
+    getGetAccountOrdersUrl(addr, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAccountOrdersQueryKey = (
+  addr: string,
+  params?: GetAccountOrdersParams,
+) => {
+  return [`/api/accounts/${addr}/orders`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAccountOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAccountOrders>>,
+  TError = ErrorType<unknown>,
+>(
+  addr: string,
+  params?: GetAccountOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAccountOrdersQueryKey(addr, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAccountOrders>>
+  > = ({ signal }) =>
+    getAccountOrders(addr, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!addr,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAccountOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAccountOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountOrders>>
+>;
+export type GetAccountOrdersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Sodex order history for a wallet
+ */
+
+export function useGetAccountOrders<
+  TData = Awaited<ReturnType<typeof getAccountOrders>>,
+  TError = ErrorType<unknown>,
+>(
+  addr: string,
+  params?: GetAccountOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccountOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAccountOrdersQueryOptions(addr, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get top traders ranked by 30d PNL

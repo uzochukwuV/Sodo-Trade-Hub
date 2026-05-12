@@ -3,6 +3,7 @@ import { runTrackerOnce, getIndexerStatus } from "../services/leaderboard-tracke
 import { runSignalPollerOnce } from "../services/signal-poller";
 import { db, tradersTable } from "@workspace/db";
 import { eq, desc, count, and, isNotNull } from "drizzle-orm";
+import { getWsHealth } from "../services/sodex-ws";
 
 const router: IRouter = Router();
 
@@ -11,6 +12,7 @@ router.get("/indexer/status", async (_req, res) => {
   const [{ value: tracked }] = await db.select({ value: count() })
     .from(tradersTable)
     .where(and(eq(tradersTable.isAutoDiscovered, true), isNotNull(tradersTable.walletAddress)));
+  const ws = getWsHealth();
   res.json({
     lastBlock: state.lastBlock,
     walletsDiscovered: state.walletsDiscovered,
@@ -18,6 +20,14 @@ router.get("/indexer/status", async (_req, res) => {
     isRunning: state.isRunning,
     lastError: state.lastError,
     totalAutoDiscovered: Number(tracked),
+    ws: {
+      connected: ws.connected,
+      lastMessageAt: ws.lastMessageAt ? new Date(ws.lastMessageAt).toISOString() : null,
+      lastConnectedAt: ws.lastConnectedAt ? new Date(ws.lastConnectedAt).toISOString() : null,
+      subscriptionCount: ws.subscriptionCount,
+      reconnectCount: ws.reconnectCount,
+      lastError: ws.lastError,
+    },
   });
 });
 

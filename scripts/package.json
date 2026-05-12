@@ -7,14 +7,17 @@
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx ./src/seed.ts",
     "bind-onchain": "tsx ./src/bind-onchain.ts",
+    "sodex-ws-smoke": "tsx ./src/sodex-ws-smoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/ws": "^8.18.1",
     "tsx": "catalog:"
   }
 }

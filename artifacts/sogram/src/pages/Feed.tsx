@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { WalletBadge } from "@/components/WalletBadge";
+import { useFeedStream } from "@/lib/sse";
+import { useRef } from "react";
 
 const MY_COMMENTER_ID = 37;
 
@@ -500,11 +502,28 @@ const TABS: { label: string; value: FeedTab }[] = [
 
 export default function Feed() {
   const [tab, setTab] = useState<FeedTab>("all");
+  const qc = useQueryClient();
 
   const { data: feedData, isLoading } = useGetFeed(
     { filter: tab, limit: 20, offset: 0 },
     { query: { queryKey: ["feed", tab] } }
   );
+
+  // Live SSE: invalidate the feed (debounced ~1s) on every new trade/signal
+  // so the page reflects activity within ~1s of the on-chain fill instead of
+  // waiting on a polling interval.
+  const invalidateTimer = useRef<number | null>(null);
+  const scheduleInvalidate = () => {
+    if (invalidateTimer.current) return;
+    invalidateTimer.current = window.setTimeout(() => {
+      invalidateTimer.current = null;
+      qc.invalidateQueries({ queryKey: ["feed"] });
+    }, 1_000);
+  };
+  useFeedStream({
+    onNewTrade: scheduleInvalidate,
+    onNewSignal: scheduleInvalidate,
+  });
 
   return (
     <div className="px-8 pb-10 max-w-[800px] w-full">

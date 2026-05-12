@@ -98,13 +98,16 @@ Mapping handled in `artifacts/api-server/src/routes/copy.ts`
 
 The entire platform is now driven by the **Sodex mainnet leaderboard** + **per-wallet positions API**. All seed/mock data has been deleted.
 
-### Three Backend Services
+### Backend Services (WS-first as of May 2026)
 
-1. **`services/leaderboard-tracker.ts`** — scrapes Sodex leaderboard, validates each wallet via positions/history, imports qualified traders. Runs hourly + manually. Quality gates: `winRate ≥ 45%`, `≥5 closed positions`, `pnl ≥ $100`. On import, **backfills the trader's last 5 closed positions** into `trades` so the feed has real activity immediately.
-
-2. **`services/signal-poller.ts`** — every 60s, fetches `/positions/history` for each tracked trader using `lastSyncedPositionId` as a high-water mark. New CLOSED positions → `trades` row (real PnL, leverage, entry/exit). New OPEN positions → `signals` row.
-
-3. **`services/market-activity.ts`** — per-symbol live tickers + 15m fills aggregation, 30s cache. Powers the `/markets` dashboard.
+1. **`services/sodex-ws.ts`** — singleton client to `wss://mainnet-gw.sodex.dev/ws/perps`. Ping/pong every 25s, exponential backoff reconnect, sub registry replayed on reconnect, typed dispatcher. Exposes `getWsHealth()` ({connected, lastMessageAt, lastConnectedAt, subscriptionCount, reconnectCount, lastError}).
+2. **`services/sodex-rest.ts`** — symbol metadata cache (loaded once at boot for tick-size lookup), `getAccountState/Trades/Orders` REST passthroughs.
+3. **`services/event-bus.ts`** — typed in-process pub/sub (`price_tick`, `new_trade`, `new_signal`). Backbone for SSE.
+4. **`services/position-ingest.ts`** — single `ingestPosition()` that upserts a SodexPosition into `trades`/`signals`, fans out alerts, and emits to the bus. Reused by both REST poller and WS handler.
+5. **`services/wallet-subs.ts`** — `subscribeWallet(addr)` + `bootstrapWalletSubs()` register `accountTrade@addr` + `accountUpdate@addr` for every tracked wallet on boot and after each leaderboard import.
+6. **`services/market-activity.ts`** — in-memory `Map<symbol, MarketActivity>` fed by `allMiniTicker`/`allMarkPrice` WS streams + per-symbol `trade@SYM` (rolling 15m buy/sell aggregation). REST is warmup + 60s safety refresh. Throttles `price_tick` emit to ~1 Hz per symbol.
+7. **`services/leaderboard-tracker.ts`** — scrapes Sodex leaderboard, validates each wallet, imports qualified traders, backfills last 5 closed positions, **and calls `subscribeWallet()`** so the new wallet immediately joins the WS feed. Quality gates: `winRate ≥ 45%`, `≥5 closed positions`, `pnl ≥ $100`. Auto-runs hourly (manual first sync).
+8. **`services/signal-poller.ts`** — **demoted to a 5-minute REST safety net** (was 60s). Uses the same `ingestPosition()` helper so anything WS missed is reconciled.
 
 ### Sodex API Endpoints Used
 
@@ -132,14 +135,31 @@ Username derived deterministically from wallet (ADJECTIVES + NOUNS + last4 hex s
 
 ### Boot Behavior
 
-- Tracker poller is scheduled every 1h but does **NOT auto-run on boot** — first sync must be triggered manually via `POST /api/indexer/run`. This avoids accidental long blocking calls during dev restarts.
-- Signal poller runs every 60s automatically.
-- Signal resolver runs every 60s (resolves open signals against live prices).
+- `getSodexWs()` connects, then `loadSymbolMeta()` warms the tick-size cache.
+- `startMarketWsSubscriptions()` subscribes `allMiniTicker` + `allMarkPrice`; `warmupMarketSnapshot()` REST-fetches all tickers once; `startSymbolFillSubscriptions()` opens `trade@SYM` per market.
+- `startMarketRefresh(60_000)` keeps a slow REST safety refresh.
+- `bootstrapWalletSubs()` registers account streams for every tracked wallet.
+- Signal poller runs every **5 min** (REST safety net only).
+- Signal resolver runs every 60s.
+- Tracker poller scheduled every 1h but does **NOT auto-run on boot** — first sync via `POST /api/indexer/run`.
+
+### SSE / WS routes
+
+- `GET /api/stream/feed` — `text/event-stream` with three event types (`price_tick`, `new_trade`, `new_signal`). 25s `: keep-alive` comment to defeat proxies. Subscribe from the frontend with `useFeedStream({ onPriceTick, onNewTrade, onNewSignal })` (`src/lib/sse.ts`). **Do NOT use the orval-generated `streamFeed` query helper for this — it issues a one-shot fetch and is unsuitable for long-lived SSE; always use `useFeedStream`/`EventSource`.**
+- `GET /api/accounts/:addr/state` — combined Sodex balances + positions + open orders for one wallet.
+- `GET /api/accounts/:addr/trades?limit=N` — Sodex trade execution history.
+- `GET /api/accounts/:addr/orders?limit=N` — Sodex order history.
+- `/api/indexer/status` now also returns `ws: {connected, lastMessageAt, lastConnectedAt, subscriptionCount, reconnectCount, lastError}`.
+
+### Smoke test
+
+- `pnpm --filter @workspace/scripts run sodex-ws-smoke [walletAddr]` — opens WS, subs `allMiniTicker` (and `accountUpdate@addr` if provided), prints first 5 messages, exits. Useful for verifying gateway/auth from the host.
 
 ### Frontend
 
-- `pages/Markets.tsx` (`/markets`) — sortable perp activity dashboard (volume / change / fills / OI / flow), market sentiment bar, summary tiles.
-- `components/IndexerPanel.tsx` — mounted on `/analytics`. Shows discovered traders with PnL/winRate/volume cols, plus SYNC LEADERBOARD + POLL POSITIONS buttons.
+- `pages/Markets.tsx` (`/markets`) — sortable perp activity dashboard. **Live `price_tick` SSE patches the in-memory snapshot ~1Hz** without re-fetching; REST refresh demoted to 60s safety net.
+- `pages/Feed.tsx` — subscribes to SSE; `new_trade`/`new_signal` debounced-invalidate `["feed"]` query (~1s) so posts appear within ~1s of on-chain fill.
+- `components/IndexerPanel.tsx` — mounted on `/analytics`. Shows discovered traders with PnL/winRate/volume cols, plus SYNC LEADERBOARD + POLL POSITIONS buttons. **Adds a SODEX WS health row** (CONNECTED/OFFLINE, last msg, subscription count, reconnect count).
 - `components/WalletBadge.tsx` — wallet/tx links to `https://main-scan.valuechain.xyz`, used across Feed, Signals, Traders, TraderProfile, CopyTrading.
 - Feed `whale` posts are now REAL — surfaces trades with notional ≥ $250k from tracked Sodex wallets (no random fabrication).
 - Backend payloads (feed + signals) carry `traderWalletAddress`, `traderIsAutoDiscovered`, `txHash` as extra fields (read frontend-side via `(post as any).field` until OpenAPI spec is updated).

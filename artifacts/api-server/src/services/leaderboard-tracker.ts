@@ -1,6 +1,7 @@
 import { db, tradersTable, tradesTable, indexerStateTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { subscribeWallet } from "./wallet-subs";
 
 const SODEX_TO_UI: Record<string, string> = {
   "BTC-USD": "BTC/USDT", "ETH-USD": "ETH/USDT", "SOL-USD": "SOL/USDT",
@@ -305,6 +306,10 @@ export async function runTrackerOnce(opts: { window?: "24H" | "7D" | "30D" | "AL
           }
 
           logger.info({ event: "tracker.imported", wallet, username, pnl: metrics.totalPnlUsd, winRate: metrics.winRate, rank: item.rank, backfilled: recentClosed.length }, "trader imported");
+          // Hot-register WS account streams for the new wallet so subsequent
+          // trades flow in within ~1 block (~1s) instead of waiting for the
+          // 5-min REST safety net.
+          subscribeWallet(inserted.id, wallet, username);
         }
       } catch (err) {
         logger.warn({ event: "tracker.insert_fail", wallet, err: String(err) }, "trader insert/update failed");
