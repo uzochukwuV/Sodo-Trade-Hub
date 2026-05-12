@@ -27,5 +27,5 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   startSignalResolver(60_000);
   startTrackerPoller(60 * 60_000);   // refresh leaderboard hourly (matches Sodex cadence)
-  startSignalPoller(60_000);          // poll each tracked trader's positions every 60s
+  startSignalPoller(30_000);          // poll each tracked trader's positions every 30s (no Sodex WS available)
 });

@@ -2,6 +2,7 @@ import { db, tradersTable, tradesTable, signalsTable } from "@workspace/db";
 import { eq, isNotNull, and } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { fetchPositions, type SodexPosition } from "./leaderboard-tracker";
+import { notifyTraderOpenedPosition, notifyTraderClosedPosition, notifyIntentAlignment } from "./alerts";
 
 function uiSymbol(sodexSymbol: string): string {
   return sodexSymbol.replace("-USD", "/USDT");
@@ -75,11 +76,21 @@ export async function runSignalPollerOnce(): Promise<PollerResult> {
             comment: pnl > 0
               ? `Closed ${side} ${symbol} ${p.leverage}x for +$${pnl.toFixed(0)}`
               : `Stopped out ${side} ${symbol} ${p.leverage}x for -$${Math.abs(pnl).toFixed(0)}`,
+            openedAt: p.createdAt ? new Date(p.createdAt) : null,
             closedAt: new Date(p.updatedAt),
           }).onConflictDoNothing({ target: [tradesTable.traderId, tradesTable.sodexTradeId] }).returning();
           if (inserted.length > 0) {
             result.newTrades++;
             logger.info({ event: "poller.new_trade", trader: trader.username, symbol, pnl, sodexId: p.id }, "imported new closed trade");
+            // Fan-out: notify followers of this trader.
+            await notifyTraderClosedPosition(trader.id, {
+              username: trader.username,
+              asset: symbol,
+              side,
+              pnlUsd: pnl,
+              sodexTradeId: String(p.id),
+              walletAddress: trader.walletAddress,
+            });
           }
         } else if (isOpen) {
           const entry = parseFloat(p.avgEntryPrice);
@@ -98,8 +109,26 @@ export async function runSignalPollerOnce(): Promise<PollerResult> {
             isActive: true,
             sodexPositionId: String(p.id),
           }).onConflictDoNothing({ target: [signalsTable.traderId, signalsTable.sodexPositionId] }).returning();
-          if (inserted.length > 0) result.newSignals++;
-          logger.info({ event: "poller.new_signal", trader: trader.username, symbol, side, entry, sodexId: p.id }, "imported new open position as signal");
+          if (inserted.length > 0) {
+            result.newSignals++;
+            logger.info({ event: "poller.new_signal", trader: trader.username, symbol, side, entry, sodexId: p.id }, "imported new open position as signal");
+            // Fan-out: alert followers + alert any user with an open intent that aligns with this entry.
+            await notifyTraderOpenedPosition(trader.id, {
+              username: trader.username,
+              asset: symbol,
+              side,
+              entryPrice: entry,
+              leverage: p.leverage,
+              sodexPositionId: String(p.id),
+              walletAddress: trader.walletAddress,
+            });
+            await notifyIntentAlignment({
+              asset: symbol,
+              side,
+              tradedByTraderId: trader.id,
+              tradedByUsername: trader.username,
+            });
+          }
         }
       } catch (err) {
         logger.warn({ event: "poller.insert_fail", trader: trader.username, sodexId: p.id, err: String(err) }, "insert failed");
@@ -122,7 +151,7 @@ export async function runSignalPollerOnce(): Promise<PollerResult> {
 
 let _pollerInterval: NodeJS.Timeout | null = null;
 
-export function startSignalPoller(intervalMs = 60_000) {
+export function startSignalPoller(intervalMs = 30_000) {
   if (_pollerInterval) return;
   setTimeout(() => { runSignalPollerOnce().catch(err => logger.error({ err }, "initial poller run failed")); }, 30_000);
   _pollerInterval = setInterval(() => {

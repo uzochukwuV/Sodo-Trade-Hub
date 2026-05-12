@@ -20,6 +20,9 @@ export const tradesTable = pgTable("trades", {
   sodexTradeId: text("sodex_trade_id"),
   likeCount: integer("like_count").notNull().default(0),
   comment: text("comment"),
+  // Position open time from Sodex — used by the trader-graph for co-entry analysis.
+  // Nullable for legacy rows; new rows always set this.
+  openedAt: timestamp("opened_at"),
   closedAt: timestamp("closed_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({

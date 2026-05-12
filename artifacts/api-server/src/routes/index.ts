@@ -15,6 +15,10 @@ import commentsRouter from "./comments";
 import valuechainRouter from "./valuechain";
 import indexerRouter from "./indexer";
 import marketsRouter from "./markets";
+import authRouter from "./auth";
+import meRouter from "./me";
+import graphRouter from "./graph";
+import riskRouter from "./risk";
 
 const router: IRouter = Router();
 
@@ -34,5 +38,9 @@ router.use(commentsRouter);
 router.use(valuechainRouter);
 router.use(indexerRouter);
 router.use(marketsRouter);
+router.use(authRouter);
+router.use(meRouter);
+router.use(graphRouter);
+router.use(riskRouter);
 
 export default router;
