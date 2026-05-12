@@ -27,16 +27,31 @@ router.get("/feed", async (req, res) => {
 
   if (filter === "all" || filter === "wins") {
     const winFilter = filter === "wins" ? and(eq(tradesTable.isVerified, true)) : undefined;
+    // Over-fetch so we have room to diversify across traders below.
+    const targetTrades = filter === "all" ? Math.ceil(limit / 2) : limit;
     const trades = await db
       .select({ trade: tradesTable, trader: tradersTable })
       .from(tradesTable)
       .innerJoin(tradersTable, eq(tradesTable.traderId, tradersTable.id))
       .where(winFilter)
-      .orderBy(desc(tradesTable.createdAt))
-      .limit(filter === "all" ? Math.ceil(limit / 2) : limit)
+      .orderBy(desc(tradesTable.closedAt))
+      .limit(targetTrades * 8)
       .offset(offset);
 
-    for (const { trade, trader } of trades) {
+    // Cap each trader at 2 trades so a single hyperactive wallet
+    // (e.g. an HFT bot) cannot monopolize the feed.
+    const PER_TRADER_CAP = 2;
+    const perTrader = new Map<number, number>();
+    const diversified: typeof trades = [];
+    for (const row of trades) {
+      const c = perTrader.get(row.trader.id) ?? 0;
+      if (c >= PER_TRADER_CAP) continue;
+      perTrader.set(row.trader.id, c + 1);
+      diversified.push(row);
+      if (diversified.length >= targetTrades) break;
+    }
+
+    for (const { trade, trader } of diversified) {
       items.push({
         type: "trade",
         trade: {
@@ -69,7 +84,7 @@ router.get("/feed", async (req, res) => {
         signal: null,
         loss: null,
         whale: null,
-        timestamp: trade.createdAt.toISOString(),
+        timestamp: trade.closedAt.toISOString(),
       });
     }
   }
