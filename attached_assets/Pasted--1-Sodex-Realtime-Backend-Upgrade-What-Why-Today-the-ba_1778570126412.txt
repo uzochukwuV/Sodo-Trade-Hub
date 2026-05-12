@@ -1,0 +1,51 @@
+#1 - Sodex Realtime Backend Upgrade
+What & Why
+Today the backend is 100% REST polling against Sodex. Every tracked trader's positions are re-fetched every 30s, and the markets dashboard does ~31 HTTP calls per refresh. Sodex now exposes a public WebSocket gateway (wss://mainnet-gw.sodex.dev/ws/perps) that pushes prices, market trades, and per-wallet account updates in real time — and per-wallet streams require no API key. Moving the hot paths onto WebSockets eliminates the 30s feed lag, removes rate-limit risk as we onboard more traders, and lets us push live updates to the browser instead of re-fetching.
+
+Done looks like
+New trades from any tracked Sodex wallet land in our trades / signals tables within ~1 block (~1s) of execution instead of up to 30s later.
+/api/markets/activity is served from a continuously-updated in-memory snapshot fed by allMiniTicker + allMarkPrice + per-symbol trade streams; the 30s REST refresh is a fallback, not the primary path.
+A single long-lived WebSocket connection per gateway is shared across the process, with heartbeat (ping/pong under 60s), auto-reconnect with backoff, subscription registry that re-subscribes on reconnect, and structured logs for connect/disconnect/resub events.
+Frontend can subscribe to a server-sent events (SSE) endpoint /api/stream/feed to receive live new_trade, new_signal, and price_tick events, so the Feed and Markets pages update without polling.
+Indexer status endpoint reports WS connection health (connected, last message ts, subscription count, reconnect count) alongside the existing tracker stats.
+The existing REST poller (signal-poller.ts) stays as a slower safety-net (every 5 min instead of 30s) to catch anything missed during WS downtime, using lastSyncedPositionId as the high-water mark — no behavior change to the de-dup logic.
+Untapped REST endpoints are wired in where they remove redundant calls: /markets/symbols cached at boot for contract metadata (tick size, min qty, max leverage), /accounts/{addr}/state used in place of three separate calls anywhere we currently fetch balances + positions + open orders together.
+All new code uses req.log / logger (no console.log), Zod validation on the SSE handshake, and the same OpenAPI-first pattern (any new HTTP routes are declared in lib/api-spec/openapi.yaml and regenerated via pnpm --filter @workspace/api-spec run codegen).
+Out of scope
+Authenticated/private Sodex streams that DO need an API key (order placement, account events that require signature) — we only consume public + read-only user streams.
+Replacing CoinGecko klines fallback (kept as-is).
+Frontend redesign — only the data-fetching layer on existing pages (Feed, Markets, Signals) gets switched to SSE; no visual changes.
+Rewriting the leaderboard tracker (the leaderboard endpoint has no WS equivalent; hourly REST stays).
+Per-user authenticated account streams for the logged-in viewer (depends on the auth wiring noted as a known caveat in replit.md).
+Steps
+Sodex WS client library — Add a shared services/sodex-ws.ts that owns one connection per gateway URL, handles ping/pong every 25s, auto-reconnects with exponential backoff, keeps a subscription registry keyed by (channel, params), and exposes subscribe(channel, params, handler) / unsubscribe(...) returning the dispatcher's connID. All inbound messages route through a typed dispatcher (mini-ticker, mark-price, trade, accountUpdate, accountTrade, etc.).
+
+Live market activity from WS — Refactor market-activity.ts and market.ts to maintain an in-memory Map<symbol, MarketActivity> populated by allMiniTicker, allMarkPrice, and per-symbol trade subscriptions (rolling 15-minute fills window). The existing REST tickers call becomes a startup warmup + 60s safety refresh. getMarketPrices(), getFills(), and getMarketActivity() read from the live snapshot. Cache TTLs drop accordingly.
+
+Live signal/trade ingestion from WS — When the leaderboard tracker imports a wallet, register accountTrade + accountUpdate subscriptions for it via the WS client. New trade messages translate into the same tradesTable / signalsTable writes that signal-poller.ts performs today (reuse the existing helpers — extract them into services/position-ingest.ts so both the WS handler and the REST poller share one code path). Demote the REST poller to a 5-minute safety net and document it as such.
+
+SSE stream to the browser — Add GET /api/stream/feed (server-sent events). It emits three event types: price_tick (throttled to ~1Hz per symbol from the WS market snapshot), new_trade (fired from the position-ingest helper after a successful insert), and new_signal (same). Update the OpenAPI spec with the SSE endpoint description. On the frontend, swap the Feed page's React Query polling for an SSE subscription that invalidates the relevant queries on each event; Markets page updates the price strip from price_tick.
+
+WS health in indexer status — Extend GET /api/indexer/status response with ws: { connected, lastMessageAt, subscriptionCount, reconnectCount, lastError }. Surface this in the existing IndexerPanel.tsx so it's visible on /analytics.
+
+Wire untapped REST endpoints — Cache /markets/symbols once at boot to expose tick size / min qty / max leverage via a new getSymbolMeta(symbol) helper used by the trade-verification path (tighter price-tolerance based on tick size instead of a flat 2%). Replace the three-call balances+positions+orders pattern (none exists yet but will be needed for the future "my account" view) with /accounts/{addr}/state in a single helper. Add /accounts/{addr}/trades and /accounts/{addr}/orders/history helpers for richer trader-profile drill-downs (no UI changes — just the helpers + a route returning the data).
+
+Verification + smoke test — Run pnpm run typecheck after every codegen. Add a one-shot script in scripts/src/ that connects to the WS gateway, subscribes to allMiniTicker and one wallet's accountUpdate, prints the first 5 messages, and exits — useful for sanity checks and CI. Document the new behavior and env vars in replit.md (Sodex WS endpoint, SSE endpoint, demoted poller cadence).
+
+Relevant files
+artifacts/api-server/src/index.ts
+artifacts/api-server/src/services/market.ts
+artifacts/api-server/src/services/market-activity.ts
+artifacts/api-server/src/services/signal-poller.ts
+artifacts/api-server/src/services/leaderboard-tracker.ts
+artifacts/api-server/src/services/alerts.ts
+artifacts/api-server/src/routes/market.ts
+artifacts/api-server/src/routes/markets.ts
+artifacts/api-server/src/routes/indexer.ts
+artifacts/api-server/src/routes/trades.ts
+artifacts/sogram/src/pages/Feed.tsx
+artifacts/sogram/src/pages/Markets.tsx
+artifacts/sogram/src/components/IndexerPanel.tsx
+lib/api-spec/openapi.yaml
+lib/api-zod/src/index.ts
+replit.md
