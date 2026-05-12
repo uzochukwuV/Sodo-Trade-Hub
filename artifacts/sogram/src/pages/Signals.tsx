@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useListSignals, useLikeSignal, useGetMarketPrices, useGetMarketKlines, useGetMarketFills } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useFeedStream } from "@/lib/sse";
+import { useFeedStream, useLivePriceTick, getLivePrice } from "@/lib/sse";
 import type { SignalFull, LiveMarketPrice, SodexFill } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WalletBadge } from "@/components/WalletBadge";
+import { LiveIndicator } from "@/components/LiveIndicator";
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -59,6 +60,10 @@ function Sparkline({ symbol, entryPrice, entryTime }: { symbol: string; entryPri
   const { data } = useGetMarketKlines(encodeURIComponent(symbol), { days }, {
     query: { queryKey: ["klines", symbol, days], staleTime: 5 * 60_000 }
   });
+  // Re-render every 500ms so the live SSE tick can be overlaid as the
+  // rightmost point of the sparkline without waiting on klines polling.
+  useLivePriceTick(500);
+  const live = getLivePrice(symbol);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -72,7 +77,10 @@ function Sparkline({ symbol, entryPrice, entryTime }: { symbol: string; entryPri
     ctx.clearRect(0, 0, W, H);
 
     const entry = Number(entryPrice);
+    // Append the live tick as the most recent point so the chart visibly
+    // moves on every SSE update rather than only on the 5-min klines refresh.
     const closes = klines.map(k => k.close);
+    if (live && live.price > 0) closes.push(live.price);
     const min = Math.min(...closes, entry) * 0.998;
     const max = Math.max(...closes, entry) * 1.002;
     const range = max - min || 1;
@@ -124,7 +132,7 @@ function Sparkline({ symbol, entryPrice, entryTime }: { symbol: string; entryPri
     ctx.arc(lastX, toY(lastClose), 3, 0, Math.PI * 2);
     ctx.fillStyle = lineColor;
     ctx.fill();
-  }, [data, entryPrice]);
+  }, [data, entryPrice, live?.price]);
 
   if (!data?.klines?.length) return (
     <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -528,13 +536,24 @@ export default function Signals() {
     }, 1000);
   };
   useFeedStream({ onNewTrade: scheduleInvalidate, onNewSignal: scheduleInvalidate });
+  useEffect(() => () => {
+    if (invalidateTimer.current) { window.clearTimeout(invalidateTimer.current); invalidateTimer.current = null; }
+  }, []);
 
+  // Bootstrap with one REST snapshot, then live-patch from SSE price_tick.
+  // Polling demoted from 30s → 2min safety net since the stream now does
+  // the heavy lifting (~1Hz per symbol).
   const { data: marketData } = useGetMarketPrices({
-    query: { queryKey: ["market-prices"], staleTime: 30_000, refetchInterval: 30_000 },
+    query: { queryKey: ["market-prices"], staleTime: 120_000, refetchInterval: 120_000 },
   });
+  // Re-render twice a second to surface the latest live ticks.
+  useLivePriceTick(500);
 
   const priceMap = new Map<string, LiveMarketPrice>(
-    (marketData?.prices ?? []).map(p => [p.symbol, p])
+    (marketData?.prices ?? []).map(p => {
+      const live = getLivePrice(p.symbol);
+      return [p.symbol, live ? { ...p, price: live.price, markPrice: live.price, change24h: live.change24h } : p];
+    })
   );
 
   const signals = data?.signals ?? [];
@@ -556,16 +575,20 @@ export default function Signals() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <LiveIndicator />
           {marketData && (
             <div className="flex items-center gap-3 border border-border/40 px-3 py-1.5 bg-card/50">
-              {(marketData.prices ?? []).slice(0, 3).map(p => (
-                <div key={p.symbol} className="text-[9px] font-mono font-bold">
-                  <span className="text-muted-foreground">{p.symbol.split("/")[0]} </span>
-                  <span className={p.change24h >= 0 ? "text-green-400" : "text-destructive"}>
-                    ${p.price < 100 ? p.price.toFixed(2) : fmt(p.price, 0)}
-                  </span>
-                </div>
-              ))}
+              {(marketData.prices ?? []).slice(0, 3).map(p => {
+                const live = priceMap.get(p.symbol) ?? p;
+                return (
+                  <div key={p.symbol} className="text-[9px] font-mono font-bold">
+                    <span className="text-muted-foreground">{p.symbol.split("/")[0]} </span>
+                    <span className={live.change24h >= 0 ? "text-green-400" : "text-destructive"}>
+                      ${live.price < 100 ? live.price.toFixed(2) : fmt(live.price, 0)}
+                    </span>
+                  </div>
+                );
+              })}
               <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Live Sodex" />
             </div>
           )}

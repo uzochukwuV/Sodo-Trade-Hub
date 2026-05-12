@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useListPainRooms,
   useAddBreakdown,
@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import type { PainRoom, BreakdownFull, AddBreakdownBody } from "@workspace/api-client-react";
 import { useFeedStream } from "@/lib/sse";
+import { LiveIndicator } from "@/components/LiveIndicator";
 import { useMyId } from "@/hooks/useAuth";
 
 const TIER_COLORS: Record<string, string> = {
@@ -647,6 +648,9 @@ export default function PainRoomPage() {
     }, 1000);
   };
   useFeedStream({ onNewTrade: scheduleInvalidate });
+  useEffect(() => () => {
+    if (invalidateTimer.current) { window.clearTimeout(invalidateTimer.current); invalidateTimer.current = null; }
+  }, []);
 
   const painRooms = data?.painRooms ?? [];
   const totalLost = painRooms.reduce((sum, pr) => sum + Math.abs(parseFloat(pr.pnlUsd)), 0);
@@ -669,16 +673,19 @@ export default function PainRoomPage() {
               Verified losses. Structured breakdowns. You learn more from losses than from wins.
             </p>
           </div>
-          <button
-            onClick={() => setShowPostForm(f => !f)}
-            style={{
-              padding: "8px 18px", background: showPostForm ? "#FF3B3B30" : "#FF3B3B1A",
-              border: "1px solid #FF3B3B44", borderRadius: 4,
-              color: "#FF3B3B", fontSize: 10, fontWeight: 700,
-              letterSpacing: 2, cursor: "pointer", fontFamily: "DM Sans",
-            }}>
-            {showPostForm ? "× CANCEL" : "+ POST LOSS"}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <LiveIndicator />
+            <button
+              onClick={() => setShowPostForm(f => !f)}
+              style={{
+                padding: "8px 18px", background: showPostForm ? "#FF3B3B30" : "#FF3B3B1A",
+                border: "1px solid #FF3B3B44", borderRadius: 4,
+                color: "#FF3B3B", fontSize: 10, fontWeight: 700,
+                letterSpacing: 2, cursor: "pointer", fontFamily: "DM Sans",
+              }}>
+              {showPostForm ? "× CANCEL" : "+ POST LOSS"}
+            </button>
+          </div>
         </div>
       </div>
 

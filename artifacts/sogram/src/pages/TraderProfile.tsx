@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { WalletBadge } from "@/components/WalletBadge";
 import { useMyId } from "@/hooks/useAuth";
 import { useFeedStream } from "@/lib/sse";
+import { LiveIndicator } from "@/components/LiveIndicator";
 
 function fmtPnl(usd: string) {
   const n = Number(usd);
@@ -235,6 +236,9 @@ export default function TraderProfile() {
     onNewTrade:  (e) => { if (e.traderId === id) refetchTraderData(); },
     onNewSignal: (e) => { if (e.traderId === id) refetchTraderData(); },
   });
+  useEffect(() => () => {
+    if (sseDebounce.current) { window.clearTimeout(sseDebounce.current); sseDebounce.current = null; }
+  }, []);
 
   // Scroll the highlighted row into view + add a 2.5s flash class. Wait one
   // tick so the table has rendered, and only run when the relevant data is in.
@@ -330,7 +334,8 @@ export default function TraderProfile() {
             </div>
           </div>
           <RepScoreRing score={repScore} tier={tier} />
-          <div className="flex flex-col gap-2 ml-4">
+          <div className="flex flex-col gap-2 ml-4 items-center">
+            <LiveIndicator />
             <button className="bg-accent text-background border-none px-6 py-2.5 font-black text-xs tracking-wider cursor-pointer hover:bg-accent/90 transition-colors">
               COPY TRADE
             </button>

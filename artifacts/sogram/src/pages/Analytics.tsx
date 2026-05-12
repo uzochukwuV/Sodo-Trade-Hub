@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   useGetAnalyticsSummary,
   useGetWhaleActivity,
@@ -8,6 +8,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { IndexerPanel } from "@/components/IndexerPanel";
+import { useFeedStream } from "@/lib/sse";
+import { LiveIndicator } from "@/components/LiveIndicator";
 
 function fmtNum(n: number) {
   if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
@@ -181,8 +183,25 @@ function ValueChainPanel() {
 }
 
 export default function Analytics() {
+  const qc = useQueryClient();
   const { data: summary, isLoading: isLoadingSummary } = useGetAnalyticsSummary({ query: { queryKey: ["analyticsSummary"] } });
   const { data: whalesData, isLoading: isLoadingWhales } = useGetWhaleActivity({ query: { queryKey: ["whaleActivity"] } });
+
+  // Live SSE — fan trades/signals into the analytics caches with a 1.5s
+  // debounce so a burst of fills doesn't trigger a refetch storm.
+  const sseDebounce = useRef<number | null>(null);
+  const scheduleInvalidate = () => {
+    if (sseDebounce.current) return;
+    sseDebounce.current = window.setTimeout(() => {
+      sseDebounce.current = null;
+      qc.invalidateQueries({ queryKey: ["analyticsSummary"] });
+      qc.invalidateQueries({ queryKey: ["whaleActivity"] });
+    }, 1500);
+  };
+  useFeedStream({ onNewTrade: scheduleInvalidate, onNewSignal: scheduleInvalidate });
+  useEffect(() => () => {
+    if (sseDebounce.current) { window.clearTimeout(sseDebounce.current); sseDebounce.current = null; }
+  }, []);
 
   const macroStats = summary ? [
     { label: "TOTAL TRADERS", value: (summary.totalTraders ?? summary.activeTraders ?? 0).toString(), note: "ACTIVE ON PLATFORM", direction: "up" as const },
@@ -288,10 +307,7 @@ export default function Analytics() {
             <div className="font-black text-[13px] tracking-wider text-white mb-1">WHALE ACTIVITY</div>
             <div className="text-muted-foreground text-[11px] tracking-wider uppercase">LARGE POSITIONS IN LAST 24H</div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="text-accent text-[10px] font-extrabold tracking-widest">LIVE</span>
-          </div>
+          <LiveIndicator />
         </div>
 
         {isLoadingWhales ? (
