@@ -1,15 +1,16 @@
 import { Router, type IRouter } from "express";
 import { db, followsTable, tradersTable } from "@workspace/db";
 import { eq, sql, and } from "drizzle-orm";
+import { requireTrader, getCurrentTraderId } from "../lib/auth";
 
 const router: IRouter = Router();
 
-router.post("/traders/:traderId/follow", async (req, res) => {
+router.post("/traders/:traderId/follow", requireTrader(), async (req, res) => {
   const traderId = Number(req.params.traderId);
-  const { followerId } = req.body;
+  const followerId = getCurrentTraderId(req);
 
-  if (!followerId || isNaN(traderId)) {
-    res.status(400).json({ error: "Missing followerId or invalid traderId" });
+  if (isNaN(traderId)) {
+    res.status(400).json({ error: "invalid traderId" });
     return;
   }
   if (followerId === traderId) {
@@ -17,7 +18,7 @@ router.post("/traders/:traderId/follow", async (req, res) => {
     return;
   }
 
-  await db.insert(followsTable).values({ followerId: Number(followerId), followingId: traderId }).onConflictDoNothing();
+  await db.insert(followsTable).values({ followerId, followingId: traderId }).onConflictDoNothing();
 
   await db.update(tradersTable)
     .set({ followerCount: sql`${tradersTable.followerCount} + 1` })
@@ -27,17 +28,17 @@ router.post("/traders/:traderId/follow", async (req, res) => {
   res.json({ following: true, followerCount: trader?.followerCount ?? 0 });
 });
 
-router.delete("/traders/:traderId/follow", async (req, res) => {
+router.delete("/traders/:traderId/follow", requireTrader(), async (req, res) => {
   const traderId = Number(req.params.traderId);
-  const { followerId } = req.body;
+  const followerId = getCurrentTraderId(req);
 
-  if (!followerId || isNaN(traderId)) {
-    res.status(400).json({ error: "Missing followerId or invalid traderId" });
+  if (isNaN(traderId)) {
+    res.status(400).json({ error: "invalid traderId" });
     return;
   }
 
   const deleted = await db.delete(followsTable)
-    .where(and(eq(followsTable.followerId, Number(followerId)), eq(followsTable.followingId, traderId)))
+    .where(and(eq(followsTable.followerId, followerId), eq(followsTable.followingId, traderId)))
     .returning();
 
   if (deleted.length > 0) {

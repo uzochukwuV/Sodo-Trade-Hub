@@ -12,7 +12,7 @@ import { WalletBadge } from "@/components/WalletBadge";
 import { useFeedStream } from "@/lib/sse";
 import { useRef } from "react";
 
-const MY_COMMENTER_ID = 37;
+import { useMyId } from "@/hooks/useAuth";
 
 function RepCircle({ score }: { score: number }) {
   const color = score >= 90 ? "text-accent border-accent/50" : "text-white border-white/20";
@@ -55,6 +55,7 @@ function CommentSection({ postType, postId }: { postType: PostType; postId: numb
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const qc = useQueryClient();
+  const myId = useMyId();
   const commentsKey = ["comments", postType, postId];
 
   const { data: commentsData, isLoading } = useGetComments(postType, postId, {}, {
@@ -75,7 +76,8 @@ function CommentSection({ postType, postId }: { postType: PostType; postId: numb
 
   const submit = () => {
     if (!draft.trim() || isPending) return;
-    addComment({ postType, postId, data: { traderId: MY_COMMENTER_ID, content: draft.trim() } });
+    if (myId === null) return;
+    addComment({ postType, postId, data: { traderId: myId, content: draft.trim() } });
   };
 
   return (
@@ -122,13 +124,14 @@ function CommentSection({ postType, postId }: { postType: PostType; postId: numb
               value={draft}
               onChange={e => setDraft(e.target.value)}
               onKeyDown={e => e.key === "Enter" && submit()}
-              placeholder="Add a comment..."
+              placeholder={myId === null ? "Connect wallet to comment..." : "Add a comment..."}
+              disabled={myId === null}
               maxLength={500}
-              className="flex-1 bg-card border border-border px-3 py-2 text-[12px] text-white placeholder:text-muted-foreground focus:outline-none focus:border-accent/50 font-mono"
+              className="flex-1 bg-card border border-border px-3 py-2 text-[12px] text-white placeholder:text-muted-foreground focus:outline-none focus:border-accent/50 font-mono disabled:opacity-50"
             />
             <button
               onClick={submit}
-              disabled={!draft.trim() || isPending}
+              disabled={!draft.trim() || isPending || myId === null}
               className="bg-accent text-background px-3 py-2 text-[10px] font-black tracking-wider cursor-pointer hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-none"
             >
               POST

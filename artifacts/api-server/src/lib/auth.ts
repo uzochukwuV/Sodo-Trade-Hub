@@ -1,7 +1,7 @@
 import { verifyMessage, isAddress, getAddress } from "viem";
 import { randomBytes } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, tradersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
@@ -165,4 +165,38 @@ export function requireAuth() {
 
 export function getCurrentUser(req: Request) {
   return (req as Request & { user?: typeof usersTable.$inferSelect }).user;
+}
+
+/**
+ * Express middleware — same as `requireAuth()` but additionally requires the
+ * authenticated user be linked to a tracked `traders` row. Performs a lazy link
+ * by wallet address if missing. Sets `req.user.traderId` on success.
+ * 403 if no trader row matches the wallet.
+ */
+export function requireTrader() {
+  const auth = requireAuth();
+  return async (req: Request, res: Response, next: NextFunction) => {
+    auth(req, res, async () => {
+      const u = getCurrentUser(req);
+      if (!u) { res.status(401).json({ error: "auth_required" }); return; }
+      if (!u.traderId) {
+        const [t] = await db.select().from(tradersTable).where(eq(tradersTable.walletAddress, u.walletAddress)).limit(1);
+        if (t) {
+          await db.update(usersTable).set({ traderId: t.id }).where(eq(usersTable.id, u.id));
+          (req as Request & { user: typeof usersTable.$inferSelect }).user = { ...u, traderId: t.id };
+        } else {
+          res.status(403).json({ error: "wallet_not_tracked", hint: "Your wallet is not in the tracked traders set yet. This action is reserved for tracked traders." });
+          return;
+        }
+      }
+      next();
+    });
+  };
+}
+
+/** Returns the trader id for the current request. Caller must have used `requireTrader()`. */
+export function getCurrentTraderId(req: Request): number {
+  const u = getCurrentUser(req);
+  if (!u?.traderId) throw new Error("getCurrentTraderId called without requireTrader()");
+  return u.traderId;
 }

@@ -25,11 +25,13 @@ router.get("/me/stats", requireAuth(), async (req, res) => {
       }
     }
 
+    // Re-read so the response reflects the freshly-linked traderId on this same call.
+    const [reread] = await db.select().from(usersTable).where(eq(usersTable.id, u.id)).limit(1);
     res.json({
       walletAddress: u.walletAddress,
       positions: positions.length,
       metrics: m,
-      traderId: u.traderId,
+      traderId: reread?.traderId ?? u.traderId,
     });
   } catch (err) {
     logger.warn({ err, wallet: u.walletAddress }, "me.stats_fail");

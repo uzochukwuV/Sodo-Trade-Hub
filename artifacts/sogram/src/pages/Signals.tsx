@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useListSignals, useLikeSignal, useGetMarketPrices, useGetMarketKlines, useGetMarketFills } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useFeedStream } from "@/lib/sse";
 import type { SignalFull, LiveMarketPrice, SodexFill } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WalletBadge } from "@/components/WalletBadge";
@@ -500,6 +502,18 @@ export default function Signals() {
   const { data, isLoading } = useListSignals(params, {
     query: { queryKey: ["signals", params] },
   });
+
+  // Live SSE — debounced invalidation when new signals/trades fire on-chain.
+  const qc = useQueryClient();
+  const invalidateTimer = useRef<number | null>(null);
+  const scheduleInvalidate = () => {
+    if (invalidateTimer.current) return;
+    invalidateTimer.current = window.setTimeout(() => {
+      invalidateTimer.current = null;
+      qc.invalidateQueries({ queryKey: ["signals"] });
+    }, 1000);
+  };
+  useFeedStream({ onNewTrade: scheduleInvalidate, onNewSignal: scheduleInvalidate });
 
   const { data: marketData } = useGetMarketPrices({
     query: { queryKey: ["market-prices"], staleTime: 30_000, refetchInterval: 30_000 },

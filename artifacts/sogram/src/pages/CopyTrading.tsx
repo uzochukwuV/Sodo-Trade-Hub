@@ -3,6 +3,7 @@ import { useListCopyConfigs, useListTraders, useUpsertCopyConfig } from "@worksp
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { WalletBadge } from "@/components/WalletBadge";
+import { useMyId } from "@/hooks/useAuth";
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -41,18 +42,17 @@ function fmtPnl(usd: string) {
   return "$" + n.toFixed(0);
 }
 
-const MY_COPIER_ID = 37;
-
 export default function CopyTrading() {
   const { toast } = useToast();
+  const myId = useMyId();
   const [selectedLeaderId, setSelectedLeaderId] = useState<number | null>(null);
   const [maxPerTrade, setMaxPerTrade] = useState(500);
   const [stopDrawdown, setStopDrawdown] = useState(10);
   const [active, setActive] = useState(true);
 
   const { data: configsData, refetch: refetchConfigs } = useListCopyConfigs(
-    { copierId: MY_COPIER_ID },
-    { query: { queryKey: ["copyConfigs"] } }
+    { copierId: myId ?? 0 },
+    { query: { queryKey: ["copyConfigs", myId], enabled: myId !== null } }
   );
   const { data: tradersData, isLoading: isLoadingTraders } = useListTraders(
     { limit: 6 },
@@ -65,9 +65,13 @@ export default function CopyTrading() {
 
   const handleActivate = () => {
     if (!leader) return;
+    if (myId === null) {
+      toast({ title: "Connect wallet", description: "Sign in with your wallet to activate copy trading.", variant: "destructive" });
+      return;
+    }
     upsertConfig({
       data: {
-        copierId: MY_COPIER_ID,
+        copierId: myId,
         leaderId: leader.id,
         isActive: active,
         maxPerTradeUsd: maxPerTrade,
@@ -238,10 +242,10 @@ export default function CopyTrading() {
             <button
               data-testid="button-activate-copy"
               onClick={handleActivate}
-              disabled={isPending}
+              disabled={isPending || myId === null}
               className="bg-accent text-background border-none p-4 font-black text-sm cursor-pointer tracking-widest w-full hover:bg-accent/90 transition-colors uppercase disabled:opacity-50"
             >
-              {isPending ? "SAVING..." : active ? "ACTIVATE COPY TRADING" : "PAUSE COPY TRADING"}
+              {myId === null ? "CONNECT WALLET TO COPY" : isPending ? "SAVING..." : active ? "ACTIVATE COPY TRADING" : "PAUSE COPY TRADING"}
             </button>
           </div>
         ) : (

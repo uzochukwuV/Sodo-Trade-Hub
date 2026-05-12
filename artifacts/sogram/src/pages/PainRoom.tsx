@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   useListPainRooms,
   useAddBreakdown,
@@ -8,6 +8,8 @@ import {
   useCreatePainRoom,
 } from "@workspace/api-client-react";
 import type { PainRoom, BreakdownFull, AddBreakdownBody } from "@workspace/api-client-react";
+import { useFeedStream } from "@/lib/sse";
+import { useMyId } from "@/hooks/useAuth";
 
 const TIER_COLORS: Record<string, string> = {
   DIAMOND: "#00D4FF",
@@ -34,8 +36,6 @@ const WHAT_FAILED_OPTIONS = [
   { value: "exit_timing", label: "Exit Timing" },
   { value: "leverage", label: "Leverage" },
 ];
-
-const MY_TRADER_ID = 37;
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -192,11 +192,12 @@ function AddBreakdownForm({ painRoomId, onSuccess }: { painRoomId: number; onSuc
   const [dataShowed, setDataShowed] = useState("");
   const [doDifferently, setDoDifferently] = useState("");
   const { mutateAsync, isPending } = useAddBreakdown();
+  const myId = useMyId();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!dataShowed.trim() || !doDifferently.trim()) return;
-    await mutateAsync({ painRoomId, data: { responderId: MY_TRADER_ID, whatFailed, dataShowed, doDifferently } });
+    if (!dataShowed.trim() || !doDifferently.trim() || myId === null) return;
+    await mutateAsync({ painRoomId, data: { responderId: myId, whatFailed, dataShowed, doDifferently } });
     setDataShowed(""); setDoDifferently(""); setOpen(false);
     onSuccess();
   }
@@ -205,6 +206,8 @@ function AddBreakdownForm({ painRoomId, onSuccess }: { painRoomId: number; onSuc
     return (
       <button
         onClick={() => setOpen(true)}
+        disabled={myId === null}
+        title={myId === null ? "Connect wallet to add a breakdown" : undefined}
         style={{
           width: "100%", padding: "10px 0",
           background: "none", border: "1px dashed #2A2A2A",
@@ -215,7 +218,7 @@ function AddBreakdownForm({ painRoomId, onSuccess }: { painRoomId: number; onSuc
         onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = "#D4FF0044"; (e.target as HTMLElement).style.color = "#D4FF00"; }}
         onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = "#2A2A2A"; (e.target as HTMLElement).style.color = "#555"; }}
       >
-        + ADD YOUR BREAKDOWN
+        {myId === null ? "+ CONNECT WALLET TO ADD BREAKDOWN" : "+ ADD YOUR BREAKDOWN"}
       </button>
     );
   }
@@ -297,6 +300,7 @@ function PainRoomCard({ pr, onRefetch }: { pr: PainRoom; onRefetch: () => void }
   const { mutateAsync: likePainRoom } = useLikePainRoom();
   const { mutateAsync: likeBreakdown } = useLikeBreakdown();
   const { mutateAsync: resolveBreakdown } = useResolveBreakdown();
+  const myId = useMyId();
 
   const pnlNum = parseFloat(pr.pnlUsd);
   const pnlPctNum = parseFloat(pr.pnlPct);
@@ -443,7 +447,7 @@ function PainRoomCard({ pr, onRefetch }: { pr: PainRoom; onRefetch: () => void }
                 isResolved={pr.isResolved}
                 onLike={() => likeBreakdown({ breakdownId: bd.id })}
                 onMarkHelpful={() => resolveBreakdown({ painRoomId: pr.id, breakdownId: bd.id }).then(onRefetch)}
-                canMarkHelpful={pr.traderId === MY_TRADER_ID}
+                canMarkHelpful={myId !== null && pr.traderId === myId}
               />
             ))
           )}
@@ -456,6 +460,7 @@ function PainRoomCard({ pr, onRefetch }: { pr: PainRoom; onRefetch: () => void }
 
 function PostLossForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: () => void }) {
   const { mutateAsync, isPending } = useCreatePainRoom();
+  const myId = useMyId();
   const [asset, setAsset] = useState("BTC/USDT");
   const [side, setSide] = useState<"LONG" | "SHORT">("LONG");
   const [entryPrice, setEntryPrice] = useState("");
@@ -484,10 +489,10 @@ function PostLossForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValid) return;
+    if (!isValid || myId === null) return;
     await mutateAsync({
       data: {
-        traderId: MY_TRADER_ID,
+        traderId: myId,
         asset,
         side,
         entryPrice,
@@ -606,13 +611,13 @@ function PostLossForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: 
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="submit" disabled={!isValid || isPending} style={{
-            flex: 1, padding: "9px 0", background: isValid ? "#FF3B3B" : "#2A1A1A",
-            border: "none", borderRadius: 4, color: isValid ? "#fff" : "#555",
+          <button type="submit" disabled={!isValid || isPending || myId === null} style={{
+            flex: 1, padding: "9px 0", background: isValid && myId !== null ? "#FF3B3B" : "#2A1A1A",
+            border: "none", borderRadius: 4, color: isValid && myId !== null ? "#fff" : "#555",
             fontSize: 11, fontWeight: 700, letterSpacing: 2,
-            cursor: isValid && !isPending ? "pointer" : "not-allowed", fontFamily: "DM Sans",
+            cursor: isValid && !isPending && myId !== null ? "pointer" : "not-allowed", fontFamily: "DM Sans",
           }}>
-            {isPending ? "SUBMITTING..." : "POST TO PAIN ROOM"}
+            {myId === null ? "CONNECT WALLET TO POST" : isPending ? "SUBMITTING..." : "POST TO PAIN ROOM"}
           </button>
           <button type="button" onClick={onClose} style={{
             padding: "9px 16px", background: "none", border: "1px solid #2A2A2A",
@@ -630,6 +635,18 @@ function PostLossForm({ onSuccess, onClose }: { onSuccess: () => void; onClose: 
 export default function PainRoomPage() {
   const { data, isLoading, refetch } = useListPainRooms();
   const [showPostForm, setShowPostForm] = useState(false);
+
+  // Live SSE — debounced refetch when new trades fire,
+  // since closed losses can become Pain Room posts.
+  const invalidateTimer = useRef<number | null>(null);
+  const scheduleInvalidate = () => {
+    if (invalidateTimer.current) return;
+    invalidateTimer.current = window.setTimeout(() => {
+      invalidateTimer.current = null;
+      refetch();
+    }, 1000);
+  };
+  useFeedStream({ onNewTrade: scheduleInvalidate });
 
   const painRooms = data?.painRooms ?? [];
   const totalLost = painRooms.reduce((sum, pr) => sum + Math.abs(parseFloat(pr.pnlUsd)), 0);

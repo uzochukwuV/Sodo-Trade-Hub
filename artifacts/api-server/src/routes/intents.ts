@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, tradersTable, tradeIntentsTable, intentVotesTable } from "@workspace/db";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { fireRepEvent } from "../lib/reputation";
+import { requireTrader, getCurrentTraderId } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -61,24 +62,19 @@ router.get("/intents", async (req, res) => {
   });
 });
 
-router.post("/intents", async (req, res) => {
-  const { traderId, asset, side, entryPrice, targetPrice, stopLoss, leverage, reasoning } = req.body;
+router.post("/intents", requireTrader(), async (req, res) => {
+  const { asset, side, entryPrice, targetPrice, stopLoss, leverage, reasoning } = req.body;
+  const traderId = getCurrentTraderId(req);
 
-  if (!traderId || !asset || !side || !entryPrice || !targetPrice || !stopLoss || !reasoning) {
+  if (!asset || !side || !entryPrice || !targetPrice || !stopLoss || !reasoning) {
     res.status(400).json({ error: "Missing required fields" });
-    return;
-  }
-
-  const trader = await db.select().from(tradersTable).where(eq(tradersTable.id, Number(traderId))).limit(1);
-  if (!trader[0]) {
-    res.status(404).json({ error: "Trader not found" });
     return;
   }
 
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   const [intent] = await db.insert(tradeIntentsTable).values({
-    traderId: Number(traderId),
+    traderId,
     asset: String(asset),
     side: String(side) as "LONG" | "SHORT",
     entryPrice: String(entryPrice),
@@ -92,16 +88,13 @@ router.post("/intents", async (req, res) => {
   res.status(201).json(intent);
 });
 
-router.post("/intents/:intentId/vote", async (req, res) => {
+router.post("/intents/:intentId/vote", requireTrader(), async (req, res) => {
   const intentId = Number(req.params.intentId);
-  const { vote, voterId } = req.body;
+  const { vote } = req.body;
+  const voterId = getCurrentTraderId(req);
 
   if (vote !== "valid" && vote !== "invalid") {
     res.status(400).json({ error: "vote must be 'valid' or 'invalid'" });
-    return;
-  }
-  if (!voterId) {
-    res.status(400).json({ error: "voterId is required" });
     return;
   }
 
@@ -114,13 +107,13 @@ router.post("/intents/:intentId/vote", async (req, res) => {
     res.status(400).json({ error: "Voting is closed for this intent" });
     return;
   }
-  if (intent.traderId === Number(voterId)) {
+  if (intent.traderId === voterId) {
     res.status(400).json({ error: "Cannot vote on your own intent" });
     return;
   }
 
   const existing = await db.select().from(intentVotesTable)
-    .where(and(eq(intentVotesTable.intentId, intentId), eq(intentVotesTable.voterId, Number(voterId))))
+    .where(and(eq(intentVotesTable.intentId, intentId), eq(intentVotesTable.voterId, voterId)))
     .limit(1);
 
   if (existing[0]) {
@@ -130,7 +123,7 @@ router.post("/intents/:intentId/vote", async (req, res) => {
 
   await db.insert(intentVotesTable).values({
     intentId,
-    voterId: Number(voterId),
+    voterId,
     vote: vote as "valid" | "invalid",
   });
 

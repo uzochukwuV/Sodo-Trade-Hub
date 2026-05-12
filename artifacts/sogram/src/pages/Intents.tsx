@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useListIntents, useVoteIntent } from "@workspace/api-client-react";
 import type { TradeIntent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const MY_VOTER_ID = 37;
+import { useQueryClient } from "@tanstack/react-query";
+import { useFeedStream } from "@/lib/sse";
+import { useMyId } from "@/hooks/useAuth";
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -39,6 +40,7 @@ const TIER_COLORS: Record<string, string> = {
 
 function IntentCard({ intent }: { intent: TradeIntent }) {
   const { mutate: vote } = useVoteIntent();
+  const myId = useMyId();
   const [myVote, setMyVote] = useState<"valid" | "invalid" | null>(null);
   const [votes, setVotes] = useState({ valid: intent.votesValid, invalid: intent.votesInvalid, pct: intent.validPct });
 
@@ -56,14 +58,17 @@ function IntentCard({ intent }: { intent: TradeIntent }) {
     ? ((targetN - entryN) / (entryN - stopN)).toFixed(1)
     : "—";
 
+  const isSelf = myId !== null && intent.traderId === myId;
+  const canVote = isOpen && !myVote && myId !== null && !isSelf;
+
   function handleVote(v: "valid" | "invalid") {
-    if (!isOpen || myVote || intent.traderId === MY_VOTER_ID) return;
+    if (!canVote || myId === null) return;
     setMyVote(v);
     const newValid = votes.valid + (v === "valid" ? 1 : 0);
     const newInvalid = votes.invalid + (v === "invalid" ? 1 : 0);
     const total = newValid + newInvalid;
     setVotes({ valid: newValid, invalid: newInvalid, pct: total > 0 ? Math.round((newValid / total) * 100) : 50 });
-    vote({ intentId: intent.id, data: { vote: v, voterId: MY_VOTER_ID } });
+    vote({ intentId: intent.id, data: { vote: v, voterId: myId } });
   }
 
   return (
@@ -161,7 +166,8 @@ function IntentCard({ intent }: { intent: TradeIntent }) {
           <div className="flex gap-2">
             <button
               onClick={() => handleVote("valid")}
-              disabled={!!myVote || intent.traderId === MY_VOTER_ID}
+              disabled={!canVote}
+              title={myId === null ? "Connect wallet to vote" : isSelf ? "Cannot vote on your own intent" : undefined}
               className={`flex-1 py-2 text-[10px] font-black tracking-wider border transition-colors ${
                 myVote === "valid"
                   ? "bg-accent text-background border-accent"
@@ -172,7 +178,8 @@ function IntentCard({ intent }: { intent: TradeIntent }) {
             </button>
             <button
               onClick={() => handleVote("invalid")}
-              disabled={!!myVote || intent.traderId === MY_VOTER_ID}
+              disabled={!canVote}
+              title={myId === null ? "Connect wallet to vote" : isSelf ? "Cannot vote on your own intent" : undefined}
               className={`flex-1 py-2 text-[10px] font-black tracking-wider border transition-colors ${
                 myVote === "invalid"
                   ? "bg-destructive text-white border-destructive"
@@ -202,6 +209,19 @@ export default function Intents() {
     statusFilter !== "all" ? { status: statusFilter, limit: 30 } : { limit: 30 },
     { query: { queryKey: ["intents", statusFilter] } }
   );
+
+  // Live SSE — debounced invalidation when new trades/signals fire,
+  // since trade outcomes resolve open intents server-side.
+  const qc = useQueryClient();
+  const invalidateTimer = useRef<number | null>(null);
+  const scheduleInvalidate = () => {
+    if (invalidateTimer.current) return;
+    invalidateTimer.current = window.setTimeout(() => {
+      invalidateTimer.current = null;
+      qc.invalidateQueries({ queryKey: ["intents"] });
+    }, 1000);
+  };
+  useFeedStream({ onNewTrade: scheduleInvalidate, onNewSignal: scheduleInvalidate });
 
   const tabs: [string, typeof statusFilter][] = [
     ["OPEN", "open"],

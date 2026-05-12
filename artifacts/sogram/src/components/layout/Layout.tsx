@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -25,6 +26,9 @@ export function Layout({ children }: { children: ReactNode }) {
           <span className="font-black text-base tracking-widest text-white">
             SOGRAM
           </span>
+        </div>
+        <div className="ml-auto">
+          <WalletConnectButton />
         </div>
       </div>
 

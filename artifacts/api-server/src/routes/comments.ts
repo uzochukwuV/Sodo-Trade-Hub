@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, commentsTable, tradersTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { requireTrader, getCurrentTraderId } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -47,17 +48,18 @@ router.get("/comments/:postType/:postId", async (req, res) => {
   });
 });
 
-router.post("/comments/:postType/:postId", async (req, res) => {
+router.post("/comments/:postType/:postId", requireTrader(), async (req, res) => {
   const postType = req.params.postType as PostType;
   const postId = Number(req.params.postId);
-  const { traderId, content } = req.body;
+  const { content } = req.body;
+  const traderId = getCurrentTraderId(req);
 
   if (!POST_TYPES.includes(postType)) {
     res.status(400).json({ error: "Invalid postType" });
     return;
   }
-  if (!traderId || !content || String(content).trim().length === 0) {
-    res.status(400).json({ error: "traderId and content are required" });
+  if (!content || String(content).trim().length === 0) {
+    res.status(400).json({ error: "content is required" });
     return;
   }
   if (String(content).length > 500) {
@@ -65,14 +67,14 @@ router.post("/comments/:postType/:postId", async (req, res) => {
     return;
   }
 
-  const trader = await db.query.tradersTable.findFirst({ where: eq(tradersTable.id, Number(traderId)) });
+  const trader = await db.query.tradersTable.findFirst({ where: eq(tradersTable.id, traderId) });
   if (!trader) {
     res.status(404).json({ error: "Trader not found" });
     return;
   }
 
   const [comment] = await db.insert(commentsTable).values({
-    traderId: Number(traderId),
+    traderId,
     postType,
     postId,
     content: String(content).trim(),

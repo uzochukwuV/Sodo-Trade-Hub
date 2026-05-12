@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, painRoomsTable, breakdownsTable, tradersTable } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
 import { fireRepEvent, recomputeRepScore } from "../lib/reputation";
+import { requireTrader, getCurrentTraderId } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -89,9 +90,10 @@ router.get("/pain-rooms", async (req, res) => {
   }
 });
 
-router.post("/pain-rooms", async (req, res) => {
+router.post("/pain-rooms", requireTrader(), async (req, res) => {
   try {
-    const { traderId, asset, side, entryPrice, exitPrice, pnlUsd, pnlPct, leverage, positionSize, comment, isAnonymous } = req.body;
+    const traderId = getCurrentTraderId(req);
+    const { asset, side, entryPrice, exitPrice, pnlUsd, pnlPct, leverage, positionSize, comment, isAnonymous } = req.body;
     const [created] = await db.insert(painRoomsTable).values({
       traderId, asset, side, entryPrice, exitPrice, pnlUsd, pnlPct, leverage: leverage ?? 1,
       positionSize: positionSize ?? "0", comment: comment ?? null, isAnonymous: isAnonymous ?? false,
@@ -104,10 +106,11 @@ router.post("/pain-rooms", async (req, res) => {
   }
 });
 
-router.post("/pain-rooms/:painRoomId/breakdowns", async (req, res) => {
+router.post("/pain-rooms/:painRoomId/breakdowns", requireTrader(), async (req, res) => {
   try {
     const painRoomId = Number(req.params.painRoomId);
-    const { responderId, whatFailed, dataShowed, doDifferently } = req.body;
+    const responderId = getCurrentTraderId(req);
+    const { whatFailed, dataShowed, doDifferently } = req.body;
     const [bd] = await db.insert(breakdownsTable).values({
       painRoomId, responderId, whatFailed, dataShowed, doDifferently,
     }).returning();
@@ -126,10 +129,19 @@ router.post("/pain-rooms/:painRoomId/breakdowns", async (req, res) => {
   }
 });
 
-router.post("/pain-rooms/:painRoomId/resolve/:breakdownId", async (req, res) => {
+router.post("/pain-rooms/:painRoomId/resolve/:breakdownId", requireTrader(), async (req, res) => {
   try {
     const painRoomId = Number(req.params.painRoomId);
     const breakdownId = Number(req.params.breakdownId);
+    const userId = getCurrentTraderId(req);
+
+    // Only the original Pain Room author may mark a breakdown as helpful.
+    const [pr] = await db.select().from(painRoomsTable).where(eq(painRoomsTable.id, painRoomId));
+    if (!pr) { res.status(404).json({ error: "Pain room not found" }); return; }
+    if (pr.traderId !== userId) {
+      res.status(403).json({ error: "Only the loss author can mark a breakdown helpful" });
+      return;
+    }
 
     await db.update(painRoomsTable)
       .set({ isResolved: true, resolvedBreakdownId: breakdownId })

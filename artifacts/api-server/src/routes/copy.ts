@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, copyConfigsTable, tradersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { ListCopyConfigsQueryParams, UpsertCopyConfigBody } from "@workspace/api-zod";
+import { requireTrader, getCurrentTraderId } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -25,13 +26,15 @@ function mapConfigToResponse(config: typeof copyConfigsTable.$inferSelect, leade
   };
 }
 
-router.get("/copy", async (req, res) => {
+router.get("/copy", requireTrader(), async (req, res) => {
   const parsed = ListCopyConfigsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { copierId } = parsed.data;
+  // Ignore client-supplied copierId — always scope to the authed trader.
+  const copierId = getCurrentTraderId(req);
+  void parsed.data;
   const configs = await db
     .select({
       config: copyConfigsTable,
@@ -49,17 +52,23 @@ router.get("/copy", async (req, res) => {
   });
 });
 
-router.put("/copy", async (req, res) => {
+router.put("/copy", requireTrader(), async (req, res) => {
   const parsed = UpsertCopyConfigBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const data = parsed.data;
+  // Always scope to the authed trader — ignore body's copierId.
+  const copierId = getCurrentTraderId(req);
+  if (copierId === data.leaderId) {
+    res.status(400).json({ error: "Cannot copy yourself" });
+    return;
+  }
 
   const existing = await db.query.copyConfigsTable.findFirst({
     where: and(
-      eq(copyConfigsTable.followerId, data.copierId),
+      eq(copyConfigsTable.followerId, copierId),
       eq(copyConfigsTable.leaderId, data.leaderId),
     ),
   });
@@ -77,7 +86,7 @@ router.put("/copy", async (req, res) => {
       .returning();
   } else {
     [config] = await db.insert(copyConfigsTable).values({
-      followerId: data.copierId,
+      followerId: copierId,
       leaderId: data.leaderId,
       isActive: data.isActive ?? true,
       maxPositionSizeUsd: data.maxPerTradeUsd !== undefined ? String(data.maxPerTradeUsd) : "500",

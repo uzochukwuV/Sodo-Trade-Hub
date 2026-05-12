@@ -15,8 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
 import { useQueryClient } from "@tanstack/react-query";
 import { WalletBadge } from "@/components/WalletBadge";
-
-const MY_VIEWER_ID = 37;
+import { useMyId } from "@/hooks/useAuth";
 
 function fmtPnl(usd: string) {
   const n = Number(usd);
@@ -117,12 +116,13 @@ function RepScoreRing({ score, tier }: { score: number; tier: string }) {
 
 function FollowButton({ traderId }: { traderId: number }) {
   const qc = useQueryClient();
-  const followKey = ["traderFollowers", traderId, MY_VIEWER_ID];
+  const myId = useMyId();
+  const followKey = ["traderFollowers", traderId, myId];
 
   const { data: followStats, isLoading: isLoadingFollow } = useGetTraderFollowers(
     traderId,
-    { followerId: MY_VIEWER_ID },
-    { query: { queryKey: followKey } }
+    { followerId: myId ?? 0 },
+    { query: { queryKey: followKey, enabled: myId !== null } }
   );
 
   const { mutate: follow, isPending: isFollowing } = useFollowTrader({
@@ -138,30 +138,38 @@ function FollowButton({ traderId }: { traderId: number }) {
 
   const isFollowingNow = followStats?.isFollowing ?? false;
   const followerCount = followStats?.followerCount ?? 0;
-  const isPending = isFollowing || isUnfollowing || isLoadingFollow;
+  const isPending = isFollowing || isUnfollowing || (myId !== null && isLoadingFollow);
+  const isSelf = myId === traderId;
+  const disabled = isPending || myId === null || isSelf;
 
   const handleClick = () => {
-    if (isPending) return;
+    if (disabled || myId === null) return;
     if (isFollowingNow) {
-      unfollow({ traderId, data: { followerId: MY_VIEWER_ID } });
+      unfollow({ traderId, data: { followerId: myId } });
     } else {
-      follow({ traderId, data: { followerId: MY_VIEWER_ID } });
+      follow({ traderId, data: { followerId: myId } });
     }
   };
+
+  const label = myId === null
+    ? "CONNECT TO FOLLOW"
+    : isSelf
+      ? "THIS IS YOU"
+      : isFollowingNow ? "FOLLOWING ✓" : "FOLLOW";
 
   return (
     <div className="flex flex-col items-center gap-1">
       <button
         onClick={handleClick}
-        disabled={isPending}
+        disabled={disabled}
         data-testid="follow-button"
         className={`px-6 py-2.5 font-black text-xs tracking-wider cursor-pointer transition-colors border ${
           isFollowingNow
             ? "bg-transparent text-accent border-accent hover:bg-accent/10"
             : "bg-transparent text-muted-foreground border-border hover:text-white hover:border-white/40"
-        } ${isPending ? "opacity-50 cursor-not-allowed" : ""}`}
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
-        {isFollowingNow ? "FOLLOWING ✓" : "FOLLOW"}
+        {label}
       </button>
       <span className="text-[10px] font-mono text-muted-foreground">
         {followerCount.toLocaleString()} followers
