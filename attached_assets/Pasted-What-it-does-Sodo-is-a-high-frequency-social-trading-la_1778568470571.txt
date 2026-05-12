@@ -1,0 +1,182 @@
+What it does
+Sodo is a high-frequency social trading layer built around real-time Sodex trading activity and trader intelligence.
+
+The platform ingests live trading activity from the Sodex ecosystem, analyzes wallet behavior, computes trader reputation and pnl, and turns every trade into a social event.
+
+Users can:
+
+discover high-performing traders
+track live positions and market rotations
+follow wallets and narratives
+view verified trader performance
+see real-time buy/sell activity feeds
+post intents and market opinions
+interact through comments, reactions, and Pain Room discussions
+connect their wallets to analyze their own trading behavior
+execute trades directly through Sodex infrastructure
+We are also building a Trader Graph that maps:
+
+which wallets behave similarly
+which wallets enter together
+which wallets rotate narratives together
+which wallets lead moves
+which wallets follow moves
+The platform transforms raw onchain trading activity into a real-time social intelligence network.
+
+The problem it solves
+Most trading platforms are fragmented and lack context.
+
+Traders usually see:
+
+price charts
+isolated wallets
+random signals
+delayed analytics
+but they cannot understand:
+
+who consistently leads market moves
+which traders are worth following
+how narratives spread across wallets
+how top traders behave in real time
+whether a signal comes from actual profitable trading activity
+Traditional social trading platforms are also filled with fake pnl screenshots, unverifiable claims, and low-quality signals.
+
+Sodo solves this by building a verified social layer directly on top of real Sodex trading activity.
+
+Every signal, reputation score, and trader profile is tied to real wallet behavior, real positions, and real trading history.
+
+Challenges I ran into
+One major challenge was moving from mock trading data to fully real-time exchange-driven data.
+
+Initially, some UI systems and analytics were built using placeholder data while we researched the actual Sodex and ValueChain infrastructure.
+
+We then had to:
+
+reverse engineer explorer behavior
+discover working REST and websocket endpoints
+map wallet activity to real trading history
+build reliable trade verification systems
+handle duplicate trade ingestion
+synchronize frontend schemas with backend APIs
+compute real pnl and win-rate metrics from live positions
+Another challenge was that some Sodex APIs expose fills and positions differently from onchain explorer data, so we had to combine multiple data sources to build accurate trader intelligence.
+
+Scaling real-time ingestion and trader graph analytics without producing noisy or fake signals was also a major architectural challenge.
+
+Technologies I used
+Frontend:
+
+React
+TypeScript
+TailwindCSS
+Backend:
+
+Node.js
+Express
+PostgreSQL
+Drizzle ORM
+Blockchain & Trading Infrastructure:
+
+Sodex REST APIs
+Sodex WebSocket APIs
+ValueChain explorer APIs
+EIP712 signing
+Wallet-based authentication
+Market & Analytics:
+
+SoSoValue APIs
+Real-time market feeds
+Trader reputation engine
+Behavioral graph analysis
+Developer Tooling:
+
+OpenAPI
+Zod
+pnpm
+Replit
+AI:
+
+OpenRouter (planned for market narrative generation and AI market summaries)
+How we built it
+We started by integrating live Sodex market data including:
+
+tickers
+trades
+orderbooks
+klines
+positions
+Then we built:
+
+trader ingestion systems
+wallet analytics pipelines
+live trade feeds
+pnl and win-rate computation
+signal verification
+reputation scoring systems
+Next, we connected real wallet addresses and transaction history to trader profiles so activity could be verified publicly through the explorer.
+
+We then evolved the product into a real-time social trading layer by adding:
+
+feeds
+comments
+intents
+reactions
+Pain Room discussions
+trader following systems
+The newest part of the system is the Trader Graph engine, which analyzes behavioral relationships between wallets and detects coordinated or correlated trading activity.
+
+What we learned
+We learned that raw trading activity becomes much more valuable when transformed into social and behavioral intelligence.
+
+Instead of simply showing trades, users care about:
+
+who entered first
+who consistently wins
+which traders influence narratives
+which wallets move together
+how market sentiment evolves in real time
+We also learned that credibility matters deeply in trading products.
+
+Verified wallet activity, real pnl, and transparent historical performance create far more trust than traditional screenshot-based trading communities.
+
+Another major insight was that social engagement increases significantly when trading activity itself becomes content.
+
+Every trade can become:
+
+a signal
+a discussion
+a learning opportunity
+a behavioral datapoint
+a social interaction
+What's next for Sodo
+Next, we are expanding Sodo into a full trader intelligence network for the Sodex ecosystem.
+
+Upcoming features include:
+
+real-time websocket ingestion for high-frequency updates
+advanced Trader Graph visualizations
+wallet clustering and behavioral similarity scoring
+narrative rotation detection
+live trader alerts and notifications
+direct trade execution through the platform
+AI-generated hourly market summaries
+trader risk profiling
+smart copy-trading intelligence
+cross-wallet influence tracking
+mobile-first social trading experiences
+Our long-term vision is to build the real-time social and intelligence layer for onchain trading — where every trade becomes discoverable, analyzable, and socially meaningful.
+
+GitHub repo
+uzochukwuV/Sodo-Trade-Hub
+Live demo
+https://sodo-trade-hub--notjustfavourpr.replit.app/
+Build with
+SoDEX
+Product Category
+sodex
+Tags
+#next
+Submitted to
+Build Your One-Person On-Chain Finance Business with SoSoValue
+Build Your One-Person On-Chain Finance Business with SoSoValue [1st Wave]
+Submit
