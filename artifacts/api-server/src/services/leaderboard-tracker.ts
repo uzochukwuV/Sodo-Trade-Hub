@@ -339,11 +339,57 @@ export async function runTrackerOnce(opts: { window?: "24H" | "7D" | "30D" | "AL
 
 let _trackerInterval: NodeJS.Timeout | null = null;
 
-export function startTrackerPoller(intervalMs = 60 * 60 * 1000) {
+/**
+ * Production boot sequence:
+ *  1. After 90 s (WS stabilisation), check if the DB has any auto-discovered
+ *     wallets. If none, run a full seed sweep (ALL_TIME + 7D, pageSize 50).
+ *  2. After the boot sweep completes, schedule recurring runs at `intervalMs`.
+ *
+ * This makes every cold start (fresh DB, container restart, first deploy)
+ * fully self-healing without any manual trigger.
+ */
+async function bootSweep(): Promise<void> {
+  const { count } = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(tradersTable)
+    .where(eq(tradersTable.isAutoDiscovered, true))
+    .then(r => r[0] ?? { count: 0 });
+
+  if (count > 0) {
+    logger.info({ event: "tracker.boot_skip", count }, "boot sweep skipped — wallets already in DB");
+    return;
+  }
+
+  logger.info({ event: "tracker.boot_sweep_start" }, "no wallets in DB — running boot sweep");
+
+  // Multi-window sweep: ALL_TIME gives depth, 7D gives recent activity.
+  for (const window of ["ALL_TIME", "7D"] as const) {
+    await runTrackerOnce({ window, pageSize: 50 }).catch(err =>
+      logger.error({ err, window }, "boot sweep window failed"),
+    );
+  }
+}
+
+export function startTrackerPoller(intervalMs = 30 * 60 * 1000) {
   if (_trackerInterval) return;
-  // Schedule on cadence (no boot auto-run; trigger via POST /api/indexer/run for the first sync).
-  _trackerInterval = setInterval(() => {
-    runTrackerOnce().catch(err => logger.error({ err }, "scheduled tracker run failed"));
-  }, intervalMs);
-  logger.info({ event: "tracker.poller_started", intervalMs }, "leaderboard tracker poller started (manual first sync)");
+
+  // Boot sweep after 90 s so the WS connection and symbol cache are ready.
+  setTimeout(() => {
+    bootSweep()
+      .then(() => {
+        // Schedule recurring sweeps that alternate windows for breadth.
+        let turn = 0;
+        _trackerInterval = setInterval(() => {
+          const windows: Array<"7D" | "30D" | "ALL_TIME"> = ["7D", "30D", "ALL_TIME"];
+          const window = windows[turn % windows.length];
+          turn++;
+          runTrackerOnce({ window, pageSize: 50 }).catch(err =>
+            logger.error({ err, window }, "scheduled tracker run failed"),
+          );
+        }, intervalMs);
+      })
+      .catch(err => logger.error({ err }, "boot sweep failed"));
+  }, 90_000);
+
+  logger.info({ event: "tracker.poller_started", intervalMs }, "leaderboard tracker poller started (auto-boot sweep in 90 s)");
 }

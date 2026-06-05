@@ -133,7 +133,7 @@ Username derived deterministically from wallet (ADJECTIVES + NOUNS + last4 hex s
 - `GET /api/indexer/discovered` — list of imported traders.
 - `GET /api/markets/activity` — `{activity: [...30 markets], summary: {totalVolume24hUsd, totalOpenInterestUsd, hottestSymbol, topGainer, topLoser, bullishCount, bearishCount, netFlow15mUsd}}`.
 
-### Boot Behavior
+### Boot Behavior (Production-ready, fully self-healing)
 
 - `getSodexWs()` connects, then `loadSymbolMeta()` warms the tick-size cache.
 - `startMarketWsSubscriptions()` subscribes `allMiniTicker` + `allMarkPrice`; `warmupMarketSnapshot()` REST-fetches all tickers once; `startSymbolFillSubscriptions()` opens `trade@SYM` per market.
@@ -141,7 +141,31 @@ Username derived deterministically from wallet (ADJECTIVES + NOUNS + last4 hex s
 - `bootstrapWalletSubs()` registers account streams for every tracked wallet.
 - Signal poller runs every **5 min** (REST safety net only).
 - Signal resolver runs every 60s.
-- Tracker poller scheduled every 1h but does **NOT auto-run on boot** — first sync via `POST /api/indexer/run`.
+- **Leaderboard tracker**: runs every **30 min**. On boot (T+90s, after WS stabilises), checks if DB has any auto-discovered wallets — if **none** (fresh DB / first deploy / DB wipe), runs a full `ALL_TIME + 7D` seed sweep automatically. Subsequent runs rotate `7D → 30D → ALL_TIME`. No manual trigger needed in production.
+- **SOGRAM_AI agent**: runs every **15 min**, first run at T+30s. Reads live Sodex prices + SoSoValue news, generates 3 trade setups via OpenRouter (`gpt-4o-mini`), posts as `signals` + `trade_intents`. SILVER tier so signals flow through the Feed's `moderate_signal` bucket.
+
+### Production Continuity Pipeline
+
+```
+Boot
+ ├─ WS connected — market streams + per-wallet account streams registered
+ ├─ bootstrapWalletSubs() — all tracked wallets re-subscribed immediately
+ ├─ T+30s  → SOGRAM_AI first run (3 intents + 3 signals via OpenRouter)
+ ├─ T+60s  → Signal poller first REST sweep
+ ├─ T+90s  → bootSweep() — seeds DB if empty, skips if wallets present
+ └─ Recurring:
+      every  1 min  — signal resolver (close hit/missed intents + signals)
+      every  5 min  — signal poller REST safety net
+      every 15 min  — SOGRAM_AI agent (new intents + signals)
+      every 30 min  — leaderboard tracker (rotate 7D/30D/ALL_TIME windows)
+      every 60 min  — market REST refresh safety net
+```
+
+Manual overrides (IndexerPanel on /analytics or direct HTTP):
+- `POST /api/indexer/run` — immediate leaderboard sweep
+- `POST /api/indexer/poll` — immediate position poll
+- `POST /api/ai/run` — immediate AI agent run
+- `GET  /api/ai/status` — AI agent last run stats
 
 ### SSE / WS routes
 

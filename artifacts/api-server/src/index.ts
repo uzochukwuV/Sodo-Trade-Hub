@@ -54,7 +54,7 @@ app.listen(port, (err) => {
   bootstrapWalletSubs().catch(err => logger.warn({ err }, "wallet subs bootstrap failed"));
 
   startSignalResolver(60_000);
-  startTrackerPoller(60 * 60_000);    // hourly leaderboard refresh
+  startTrackerPoller(30 * 60_000);    // leaderboard refresh every 30 min; auto-boots on empty DB
   startSignalPoller(5 * 60_000);      // 5-min REST safety net (WS is primary)
   startAiAgent(15 * 60_000);          // AI agent: post intents + signals every 15 min
 });
