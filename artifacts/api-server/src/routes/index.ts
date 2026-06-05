@@ -22,6 +22,7 @@ import riskRouter from "./risk";
 import streamRouter from "./stream";
 import accountsRouter from "./accounts";
 import aiRouter from "./ai";
+import chatRouter from "./chat";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(riskRouter);
 router.use(streamRouter);
 router.use(accountsRouter);
 router.use(aiRouter);
+router.use(chatRouter);
 
 export default router;

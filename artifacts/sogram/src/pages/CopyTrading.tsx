@@ -133,9 +133,10 @@ export default function CopyTrading() {
     { copierId: myId ?? 0 },
     { query: { queryKey: ["copyConfigs", myId], enabled: myId !== null } }
   );
+  const [leadersLimit, setLeadersLimit] = useState(6);
   const { data: tradersData, isLoading: isLoadingTraders } = useListTraders(
-    { limit: 6 },
-    { query: { queryKey: ["tradersList"] } }
+    { limit: leadersLimit },
+    { query: { queryKey: ["tradersList", leadersLimit] } }
   );
   const { mutate: upsertConfig, isPending } = useUpsertCopyConfig();
 
@@ -245,6 +246,14 @@ export default function CopyTrading() {
               );
             })}
           </div>
+          {leaders.length >= leadersLimit && (
+            <button
+              onClick={() => setLeadersLimit(l => l + 6)}
+              className="w-full py-2 border border-border text-muted-foreground text-[10px] font-extrabold tracking-widest hover:border-accent/40 hover:text-accent transition-colors"
+            >
+              SHOW MORE
+            </button>
+          )}
         </div>
 
         {/* ── RIGHT: Settings + trade history ── */}

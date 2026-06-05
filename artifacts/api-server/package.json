@@ -10,6 +10,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.1.48",
+    "@langchain/openai": "^1.4.7",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "connect-pg-simple": "^10.0.0",
@@ -18,6 +21,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "express-session": "^1.19.0",
+    "langchain": "^1.4.4",
     "openai": "^6.42.0",
     "pg": "^8.20.0",
     "pino": "^9",

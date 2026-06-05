@@ -14,6 +14,7 @@ import CopyTrading from "@/pages/CopyTrading";
 import PainRoom from "@/pages/PainRoom";
 import Intents from "@/pages/Intents";
 import Markets from "@/pages/Markets";
+import { ChatWidget } from "@/components/ChatWidget";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>
+        <ChatWidget />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -395,11 +395,51 @@ function IntentCard({ intent }: { intent: TradeIntent }) {
 export default function Intents() {
   const [statusFilter, setStatusFilter] = useState<"open" | "closed_hit" | "closed_miss" | "all">("open");
   const [showModal, setShowModal] = useState(false);
+  const [allIntents, setAllIntents] = useState<TradeIntent[]>([]);
+  const [intentOffset, setIntentOffset] = useState(0);
+  const [hasMoreIntents, setHasMoreIntents] = useState(true);
+  const [isLoadingMoreIntents, setIsLoadingMoreIntents] = useState(false);
 
   const { data, isLoading, refetch } = useListIntents(
-    statusFilter !== "all" ? { status: statusFilter, limit: 30 } : { limit: 30 },
+    statusFilter !== "all" ? { status: statusFilter, limit: 20 } : { limit: 20 },
     { query: { queryKey: ["intents", statusFilter] } }
   );
+
+  // Reset when filter changes
+  useEffect(() => {
+    setAllIntents([]);
+    setIntentOffset(0);
+    setHasMoreIntents(true);
+  }, [statusFilter]);
+
+  // Sync initial data (page 0) into accumulated list
+  useEffect(() => {
+    if (data?.intents) {
+      setAllIntents(data.intents);
+      setHasMoreIntents((data.intents.length ?? 0) >= 20);
+      setIntentOffset(0);
+    }
+  }, [data]);
+
+  const loadMoreIntents = async () => {
+    if (isLoadingMoreIntents || !hasMoreIntents) return;
+    setIsLoadingMoreIntents(true);
+    try {
+      const newOffset = intentOffset + 20;
+      const params = new URLSearchParams({ limit: "20", offset: String(newOffset) });
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      const res = await fetch(`/api/intents?${params}`);
+      const d = await res.json();
+      const newIntents: TradeIntent[] = d.intents ?? [];
+      setAllIntents(prev => [...prev, ...newIntents]);
+      setIntentOffset(newOffset);
+      setHasMoreIntents(newIntents.length >= 20);
+    } catch {
+      // silently ignore
+    } finally {
+      setIsLoadingMoreIntents(false);
+    }
+  };
 
   const qc = useQueryClient();
   const invalidateTimer = useRef<number | null>(null);
@@ -468,7 +508,7 @@ export default function Intents() {
         <div className="flex flex-col gap-4">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-64 w-full" />)}
         </div>
-      ) : (data?.intents ?? []).length === 0 ? (
+      ) : allIntents.length === 0 ? (
         <div className="border border-border bg-card p-12 text-center">
           <div className="text-muted-foreground text-[10px] font-extrabold tracking-widest mb-2">NO INTENTS</div>
           <p className="text-muted-foreground text-sm mb-4">No {statusFilter} setups right now.</p>
@@ -482,9 +522,25 @@ export default function Intents() {
           )}
         </div>
       ) : (
-        (data?.intents ?? []).map(intent => (
-          <IntentCard key={intent.id} intent={intent} />
-        ))
+        <>
+          {allIntents.map(intent => (
+            <IntentCard key={intent.id} intent={intent} />
+          ))}
+          {hasMoreIntents && (
+            <button
+              onClick={loadMoreIntents}
+              disabled={isLoadingMoreIntents}
+              className="mt-4 w-full py-3 border border-border text-muted-foreground text-[11px] font-extrabold tracking-widest hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40"
+            >
+              {isLoadingMoreIntents ? "LOADING..." : "LOAD MORE"}
+            </button>
+          )}
+          {!hasMoreIntents && allIntents.length > 0 && (
+            <div className="mt-4 py-3 text-center text-muted-foreground text-[10px] font-bold tracking-widest border-t border-border/30">
+              ALL INTENTS LOADED
+            </div>
+          )}
+        </>
       )}
     </div>
   );

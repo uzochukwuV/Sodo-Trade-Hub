@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetFeed, useLikeTrade, useLikeSignal,
   useGetComments, useAddComment,
@@ -734,12 +734,50 @@ const TABS: { label: string; value: FeedTab }[] = [
 
 export default function Feed() {
   const [tab, setTab] = useState<FeedTab>("all");
+  const [allItems, setAllItems] = useState<FeedItem[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const qc = useQueryClient();
 
   const { data: feedData, isLoading } = useGetFeed(
     { filter: tab, limit: 20, offset: 0 },
     { query: { queryKey: ["feed", tab] } }
   );
+
+  // Reset accumulated items when tab changes
+  useEffect(() => {
+    setAllItems([]);
+    setOffset(0);
+    setHasMore(true);
+  }, [tab]);
+
+  // Sync initial data (page 0) into accumulated list
+  useEffect(() => {
+    if (feedData?.items) {
+      setAllItems(feedData.items);
+      setHasMore((feedData.items.length ?? 0) >= 20);
+      setOffset(0);
+    }
+  }, [feedData]);
+
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const newOffset = offset + 20;
+      const res = await fetch(`/api/feed?filter=${tab}&limit=20&offset=${newOffset}`);
+      const data = await res.json();
+      const newItems: FeedItem[] = data.items ?? [];
+      setAllItems(prev => [...prev, ...newItems]);
+      setOffset(newOffset);
+      setHasMore(newItems.length >= 20);
+    } catch {
+      // silently ignore load-more errors
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Live SSE: invalidate the feed (debounced ~1s) on every new trade/signal
   // so the page reflects activity within ~1s of the on-chain fill instead of
@@ -805,7 +843,7 @@ export default function Feed() {
         </div>
       ) : (
         <div className="flex flex-col">
-          {(feedData?.items ?? []).map((item, idx) => {
+          {allItems.map((item, idx) => {
             if (item.type === "trade" && item.trade) {
               return <WinPost key={`trade-${item.trade.id ?? idx}`} post={item.trade} />;
             }
@@ -826,9 +864,23 @@ export default function Feed() {
             }
             return null;
           })}
-          {(feedData?.items ?? []).length === 0 && (
+          {allItems.length === 0 && (
             <div className="text-center text-muted-foreground py-16 text-sm tracking-wider font-bold">
               NO POSTS YET
+            </div>
+          )}
+          {allItems.length > 0 && hasMore && (
+            <button
+              onClick={loadMore}
+              disabled={isLoadingMore}
+              className="mt-6 w-full py-3 border border-border text-muted-foreground text-[11px] font-extrabold tracking-widest hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40"
+            >
+              {isLoadingMore ? "LOADING..." : "LOAD MORE"}
+            </button>
+          )}
+          {allItems.length > 0 && !hasMore && (
+            <div className="mt-6 py-3 text-center text-muted-foreground text-[10px] font-bold tracking-widest border-t border-border/30">
+              ALL CAUGHT UP
             </div>
           )}
         </div>

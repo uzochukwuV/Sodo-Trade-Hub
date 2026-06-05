@@ -2,3 +2,5 @@
 - [Lib packages build](lib-build.md) — lib packages have no "build" script; must use tsc --build to generate dist/ before typechecks pass
 - [SoSoValue rate limit](sosovalue-rate-limit.md) — API returns error code 402901 on rapid concurrent requests; fix with in-flight promise deduplication + 15min cache TTL
 - [Nested anchor bug pattern](nested-anchor-pattern.md) — wrapping cards in <Link> (renders <a>) while inner WalletBadge also has <a> tags causes React hydration error; use div+role="link"+navigate instead
+- [LangChain esbuild externals](langchain-esbuild.md) — LangChain v1.4.4 has minimal exports; add langchain/*, @langchain/* to build.mjs externals; avoid langchain/agents (not exported); implement tool loop manually with @langchain/core/tools + @langchain/core/messages/tool
+- [React pagination pattern](react-pagination-pattern.md) — use useEffect (not render-body state mutations) for syncing fetched data into accumulated lists; never call setState directly in render
