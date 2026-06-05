@@ -1,1 +1,4 @@
 - [Workflow startup env vars](workflow-startup.md) — sogram + api-server both need explicit PORT/BASE_PATH env vars in the workflow command
+- [Lib packages build](lib-build.md) — lib packages have no "build" script; must use tsc --build to generate dist/ before typechecks pass
+- [SoSoValue rate limit](sosovalue-rate-limit.md) — API returns error code 402901 on rapid concurrent requests; fix with in-flight promise deduplication + 15min cache TTL
+- [Nested anchor bug pattern](nested-anchor-pattern.md) — wrapping cards in <Link> (renders <a>) while inner WalletBadge also has <a> tags causes React hydration error; use div+role="link"+navigate instead

@@ -199,31 +199,44 @@ function mapRawItem(raw: SoSoRawItem, idx: number): IntelligenceItem {
   };
 }
 
+/** In-flight deduplication: prevents concurrent cache misses from hitting SoSoValue multiple times */
+let _sosoInflight: Promise<SoSoRawItem[]> | null = null;
+
 /** Fetch and cache raw items from SoSoValue news endpoint */
 async function fetchRawItems(limit = 40): Promise<SoSoRawItem[]> {
   const cached = getCached<SoSoRawItem[]>("soso_raw");
   if (cached) return cached;
 
-  const res = await fetch(`${SOSO_BASE}/news?limit=${limit}`, {
-    headers: { "x-soso-api-key": SOSO_KEY },
-    signal: AbortSignal.timeout(8000),
-  });
-  const json = await res.json() as { code: number; data?: { list?: SoSoRawItem[] } | SoSoRawItem[] };
+  if (_sosoInflight) return _sosoInflight;
 
-  let raw: SoSoRawItem[] = [];
+  _sosoInflight = (async () => {
+    try {
+      const res = await fetch(`${SOSO_BASE}/news?limit=${limit}`, {
+        headers: { "x-soso-api-key": SOSO_KEY },
+        signal: AbortSignal.timeout(10_000),
+      });
+      const json = await res.json() as { code: number; data?: { list?: SoSoRawItem[] } | SoSoRawItem[] };
 
-  if (json.code === 0 || json.code === undefined) {
-    if (Array.isArray(json.data)) {
-      raw = json.data;
-    } else if (json.data && Array.isArray((json.data as { list?: SoSoRawItem[] }).list)) {
-      raw = (json.data as { list: SoSoRawItem[] }).list;
+      let raw: SoSoRawItem[] = [];
+
+      if (json.code === 0 || json.code === undefined) {
+        if (Array.isArray(json.data)) {
+          raw = json.data;
+        } else if (json.data && Array.isArray((json.data as { list?: SoSoRawItem[] }).list)) {
+          raw = (json.data as { list: SoSoRawItem[] }).list;
+        }
+      } else {
+        throw new Error(`SoSoValue error code ${json.code}`);
+      }
+
+      setCached("soso_raw", raw, 15 * 60_000);
+      return raw;
+    } finally {
+      _sosoInflight = null;
     }
-  } else {
-    throw new Error(`SoSoValue error code ${json.code}`);
-  }
+  })();
 
-  setCached("soso_raw", raw, 5 * 60_000);
-  return raw;
+  return _sosoInflight;
 }
 
 // ── Legacy news interface (used by MarketVibe) ──────────────────────────────

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useListTraders } from "@workspace/api-client-react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
+
 import { WalletBadge } from "@/components/WalletBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,8 @@ export default function Traders() {
     ["followerCount", "FOLLOWERS"],
   ];
 
+  const [, navigate] = useLocation();
+
   return (
     <div className="px-8 pb-10 max-w-[1000px] w-full pt-8">
       <div className="mb-6 flex justify-between items-center gap-4">
@@ -77,11 +80,15 @@ export default function Traders() {
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {sorted.map(trader => (
-            <Link key={trader.id} href={`/traders/${trader.id}`} className="block">
-              <div
-                className="border border-border p-5 bg-card hover:border-accent/50 transition-colors cursor-pointer"
-                data-testid={`card-trader-${trader.id}`}
-              >
+            <div
+              key={trader.id}
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate(`/traders/${trader.id}`)}
+              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/traders/${trader.id}`); }}
+              className="border border-border p-5 bg-card hover:border-accent/50 transition-colors cursor-pointer"
+              data-testid={`card-trader-${trader.id}`}
+            >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex gap-3 items-center">
                     <div className="w-10 h-10 rounded-full border-[1.5px] border-border flex items-center justify-center text-xs font-black text-muted-foreground">
@@ -131,8 +138,7 @@ export default function Traders() {
                     <div className="text-white font-black text-sm font-mono">{(trader.followerCount ?? 0).toLocaleString()}</div>
                   </div>
                 </div>
-              </div>
-            </Link>
+            </div>
           ))}
           {sorted.length === 0 && (
             <div className="col-span-2 text-center text-muted-foreground py-16 text-sm tracking-wider font-bold">

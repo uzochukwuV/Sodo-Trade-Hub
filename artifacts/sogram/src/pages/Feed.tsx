@@ -425,11 +425,12 @@ function LossPost({ post }: { post: NonNullable<FeedItem["loss"]> }) {
             <span className="text-muted-foreground text-[11px] font-bold">
               💬 {post.breakdownCount} breakdown{post.breakdownCount !== 1 ? "s" : ""}
             </span>
-            <Link href="/pain-room" onClick={(e) => e.stopPropagation()}>
-              <button className="ml-auto text-[10px] font-extrabold tracking-wider border border-destructive/40 text-destructive px-4 py-1.5 hover:bg-destructive/10 transition-colors bg-transparent cursor-pointer">
-                {post.isResolved ? "VIEW BREAKDOWN" : "GIVE BREAKDOWN"}
-              </button>
-            </Link>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate("/pain-room"); }}
+              className="ml-auto text-[10px] font-extrabold tracking-wider border border-destructive/40 text-destructive px-4 py-1.5 hover:bg-destructive/10 transition-colors bg-transparent cursor-pointer"
+            >
+              {post.isResolved ? "VIEW BREAKDOWN" : "GIVE BREAKDOWN"}
+            </button>
           </div>
           <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <CommentSection postType="pain_room" postId={post.id} />
