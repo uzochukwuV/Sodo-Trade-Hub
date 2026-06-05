@@ -30,7 +30,7 @@ args = "PORT=8080 pnpm --filter @workspace/api-server run dev & BASE_PATH=/ PORT
 waitForPort = 23860
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
