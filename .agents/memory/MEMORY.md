@@ -1,0 +1,1 @@
+- [Workflow startup env vars](workflow-startup.md) — sogram + api-server both need explicit PORT/BASE_PATH env vars in the workflow command

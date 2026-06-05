@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { getMarketPrices, getNews, getKlines, getMarketVibeSummary, getFills } from "../services/market";
+import { getMarketPrices, getNews, getKlines, getMarketVibeSummary, getFills, getIntelligence } from "../services/market";
 
 const router: IRouter = Router();
 
@@ -32,6 +32,11 @@ router.get("/market/fills/:symbol", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const fills = await getFills(symbol, limit);
   res.json({ symbol, fills, fetchedAt: new Date().toISOString() });
+});
+
+router.get("/market/intelligence", async (req, res) => {
+  const intelligence = await getIntelligence();
+  res.json(intelligence);
 });
 
 export default router;

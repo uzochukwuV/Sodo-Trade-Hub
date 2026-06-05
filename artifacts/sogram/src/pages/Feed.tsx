@@ -1,13 +1,13 @@
 import { useState } from "react";
 import {
-  useGetFeed, useLikeTrade, useLikeSignal, useGetMarketVibe,
+  useGetFeed, useLikeTrade, useLikeSignal,
   useGetComments, useAddComment,
 } from "@workspace/api-client-react";
 import type { FeedItem } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { WalletBadge } from "@/components/WalletBadge";
 import { useFeedStream } from "@/lib/sse";
 import { useRef } from "react";
@@ -504,53 +504,219 @@ function WhalePost({ post }: { post: NonNullable<FeedItem["whale"]> }) {
   );
 }
 
-function MarketVibe() {
-  const { data, isLoading } = useGetMarketVibe({
-    query: { queryKey: ["market-vibe"], staleTime: 5 * 60_000, refetchInterval: 5 * 60_000 },
+interface IntelligenceItem {
+  id: string;
+  category: number;
+  title: string | null;
+  content: string;
+  url: string;
+  publishedAt: string;
+  author: string;
+  authorDisplayName: string | null;
+  authorAvatar: string | null;
+  isVerified: boolean;
+  likes: number;
+  replies: number;
+  retweets: number;
+  impressions: number;
+  matchedCoins: Array<{ symbol: string; name: string }>;
+  tags: string[];
+  imageUrl: string | null;
+}
+interface IntelligenceData {
+  news: IntelligenceItem[];
+  kolViews: IntelligenceItem[];
+  alerts: IntelligenceItem[];
+  fetchedAt: string;
+}
+
+function intelTimeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function CoinTag({ symbol }: { symbol: string }) {
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 800, letterSpacing: "0.08em",
+      padding: "1px 5px", border: "1px solid rgba(212,255,0,0.35)",
+      color: "#D4FF00", background: "rgba(212,255,0,0.07)",
+    }}>
+      ${symbol}
+    </span>
+  );
+}
+
+function NewsCard({ item }: { item: IntelligenceItem }) {
+  const label = item.title || item.content.slice(0, 100);
+  return (
+    <a href={item.url} target="_blank" rel="noopener noreferrer"
+      style={{ display: "block", textDecoration: "none", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+    >
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <span style={{ color: "#D4FF00", fontSize: 8, fontWeight: 900, marginTop: 3, flexShrink: 0 }}>▸</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, color: "#ddd", fontWeight: 600, lineHeight: 1.5 }}>{label}</p>
+          <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 9, color: "#555", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {item.authorDisplayName || item.author}
+            </span>
+            <span style={{ fontSize: 9, color: "#444" }}>·</span>
+            <span style={{ fontSize: 9, color: "#444", fontFamily: "JetBrains Mono, monospace" }}>{intelTimeAgo(item.publishedAt)}</span>
+            {item.matchedCoins.slice(0, 3).map(c => <CoinTag key={c.symbol} symbol={c.symbol} />)}
+          </div>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+function KolCard({ item }: { item: IntelligenceItem }) {
+  const text = item.content.slice(0, 180) + (item.content.length > 180 ? "…" : "");
+  return (
+    <a href={item.url} target="_blank" rel="noopener noreferrer"
+      style={{ display: "block", textDecoration: "none", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+    >
+      <div style={{ display: "flex", gap: 10 }}>
+        {item.authorAvatar ? (
+          <img src={item.authorAvatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid rgba(255,255,255,0.1)" }} />
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#666", fontWeight: 800 }}>
+            {(item.authorDisplayName || item.author || "?")[0].toUpperCase()}
+          </div>
+        )}
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.authorDisplayName || item.author}</span>
+            {item.isVerified && (
+              <span style={{ fontSize: 8, background: "#1d9bf0", color: "#fff", padding: "1px 4px", fontWeight: 900, letterSpacing: "0.05em" }}>✓ CT</span>
+            )}
+            <span style={{ fontSize: 9, color: "#555", marginLeft: "auto" }}>{intelTimeAgo(item.publishedAt)}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: "#bbb", lineHeight: 1.5, fontWeight: 400 }}>{text}</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {item.matchedCoins.slice(0, 3).map(c => <CoinTag key={c.symbol} symbol={c.symbol} />)}
+            {item.likes > 0 && (
+              <span style={{ fontSize: 9, color: "#555", fontFamily: "JetBrains Mono, monospace" }}>♥ {item.likes}</span>
+            )}
+            {item.retweets > 0 && (
+              <span style={{ fontSize: 9, color: "#555", fontFamily: "JetBrains Mono, monospace" }}>↺ {item.retweets}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+function AlertCard({ item }: { item: IntelligenceItem }) {
+  const text = (item.title || item.content).slice(0, 160) + ((item.title || item.content).length > 160 ? "…" : "");
+  return (
+    <a href={item.url} target="_blank" rel="noopener noreferrer"
+      style={{ display: "block", textDecoration: "none", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+    >
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>⚡</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, color: "#e0c97f", fontWeight: 600, lineHeight: 1.5 }}>{text}</p>
+          <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 9, color: "#555", fontWeight: 700 }}>{item.authorDisplayName || item.author}</span>
+            <span style={{ fontSize: 9, color: "#444" }}>·</span>
+            <span style={{ fontSize: 9, color: "#444", fontFamily: "JetBrains Mono, monospace" }}>{intelTimeAgo(item.publishedAt)}</span>
+            {item.tags.slice(0, 3).map(t => (
+              <span key={t} style={{ fontSize: 9, color: "#666", padding: "1px 4px", border: "1px solid rgba(255,255,255,0.1)" }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+type IntelTab = "news" | "kol" | "alerts";
+
+function SoSoValueIntelligence() {
+  const [tab, setTab] = useState<IntelTab>("news");
+
+  const { data, isLoading } = useQuery<IntelligenceData>({
+    queryKey: ["soso-intelligence"],
+    queryFn: async () => {
+      const res = await fetch("/api/market/intelligence");
+      if (!res.ok) throw new Error("Failed to fetch intelligence");
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
   });
 
-  if (isLoading || !data) return null;
+  const tabs: { key: IntelTab; label: string; count: number }[] = [
+    { key: "news",   label: "NEWS",     count: data?.news?.length ?? 0 },
+    { key: "kol",    label: "KOL VIEWS", count: data?.kolViews?.length ?? 0 },
+    { key: "alerts", label: "ALERTS",   count: data?.alerts?.length ?? 0 },
+  ];
+
+  const items = tab === "news" ? data?.news : tab === "kol" ? data?.kolViews : data?.alerts;
 
   return (
     <div style={{
-      border: "1px solid rgba(212,255,0,0.2)",
-      background: "linear-gradient(135deg, rgba(212,255,0,0.04) 0%, rgba(0,0,0,0) 100%)",
-      padding: "14px 16px",
-      marginBottom: 4,
+      border: "1px solid rgba(212,255,0,0.18)",
+      background: "linear-gradient(160deg, rgba(212,255,0,0.025) 0%, rgba(0,0,0,0) 60%)",
+      marginBottom: 6,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#D4FF00", animation: "pulse 2s infinite" }} />
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.15em", color: "#D4FF00" }}>AI MARKET VIBE</span>
-        <div style={{ display: "flex", gap: 12, marginLeft: "auto" }}>
-          {(data.prices ?? []).slice(0, 3).map(p => (
-            <span key={p.symbol} style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>
-              <span style={{ color: "#555" }}>{p.symbol.split("/")[0]} </span>
-              <span style={{ color: p.change24h >= 0 ? "#22C55E" : "#FF3B3B" }}>
-                ${p.price < 100 ? p.price.toFixed(2) : p.price.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-              </span>
-            </span>
-          ))}
-        </div>
+      {/* Header */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+      }}>
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#D4FF00" }} />
+        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.16em", color: "#D4FF00" }}>SOSOVALUE INTELLIGENCE</span>
+        <span style={{
+          marginLeft: "auto", fontSize: 8, fontWeight: 700, letterSpacing: "0.08em",
+          color: "#444", padding: "2px 6px", border: "1px solid rgba(255,255,255,0.08)",
+        }}>POWERED BY SOSOVALUE</span>
       </div>
-      <p style={{ fontSize: 12, color: "#888", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
-        {data.summary}
-      </p>
-      {(data.news ?? []).length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          {(data.news ?? []).slice(0, 2).map(n => (
-            <div key={n.id} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
-              <span style={{ color: "#D4FF00", fontSize: 9, fontWeight: 900, marginTop: 1, flexShrink: 0 }}>▸</span>
-              <a href={n.url} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 11, color: "#ccc", fontWeight: 600, textDecoration: "none", lineHeight: 1.4 }}
-                onMouseOver={e => (e.currentTarget.style.color = "#D4FF00")}
-                onMouseOut={e => (e.currentTarget.style.color = "#ccc")}
-              >
-                {n.title}
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
+
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            background: "transparent", border: "none", cursor: "pointer",
+            padding: "7px 14px", fontSize: 9, fontWeight: 900, letterSpacing: "0.12em",
+            color: tab === t.key ? "#D4FF00" : "#555",
+            borderBottom: tab === t.key ? "2px solid #D4FF00" : "2px solid transparent",
+            transition: "color 0.15s",
+          }}>
+            {t.label}{t.count > 0 ? ` (${t.count})` : ""}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "0 14px", maxHeight: 320, overflowY: "auto" }}>
+        {isLoading && (
+          <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 12 }}>
+            {[1,2,3].map(i => (
+              <div key={i} style={{ height: 48, background: "rgba(255,255,255,0.03)", borderRadius: 2 }} />
+            ))}
+          </div>
+        )}
+        {!isLoading && (!items || items.length === 0) && (
+          <div style={{ padding: "20px 0", textAlign: "center", fontSize: 11, color: "#444", fontWeight: 600, letterSpacing: "0.08em" }}>
+            NO DATA AVAILABLE
+          </div>
+        )}
+        {!isLoading && items && items.map(item =>
+          tab === "news" ? <NewsCard key={item.id} item={item} /> :
+          tab === "kol"  ? <KolCard  key={item.id} item={item} /> :
+                           <AlertCard key={item.id} item={item} />
+        )}
+      </div>
     </div>
   );
 }
@@ -608,8 +774,8 @@ export default function Feed() {
         ))}
       </div>
 
-      {/* Market Vibe */}
-      <MarketVibe />
+      {/* SoSoValue Intelligence */}
+      <SoSoValueIntelligence />
 
       {/* Composer */}
       <div className="py-5 border-b border-border mb-1 flex gap-3.5 items-center">

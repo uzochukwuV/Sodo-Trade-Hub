@@ -60,11 +60,6 @@ interface SodexTicker {
 
 const REVERSE = Object.fromEntries(Object.entries(SODEX_SYMBOL).map(([k, v]) => [v, k]));
 
-/**
- * Now reads from the live WS-fed market snapshot (services/market-activity.ts).
- * The snapshot is updated continuously from `allMiniTicker` + `allMarkPrice`
- * with a 60s REST safety refresh, so prices are usually <1s old.
- */
 export async function getMarketPrices(): Promise<MarketPrice[]> {
   const cached = getCached<MarketPrice[]>("prices");
   if (cached) return cached;
@@ -95,6 +90,143 @@ export async function getPrice(symbol: string): Promise<number | null> {
   return prices.find(p => p.symbol === symbol)?.price ?? null;
 }
 
+/** Strip HTML tags from content and collapse whitespace */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<img[^>]*>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Extract first image URL from HTML content */
+function extractImageUrl(content: string): string | null {
+  const m = content.match(/src="(https?:\/\/[^"]+)"/);
+  return m ? m[1] : null;
+}
+
+/** Raw SoSoValue API item shape */
+interface SoSoRawItem {
+  id?: string;
+  source_link?: string;
+  original_link?: string;
+  release_time?: string | number;
+  title?: string | null;
+  content?: string;
+  author?: string;
+  author_description?: string | null;
+  author_avatar_url?: string | null;
+  impression_count?: string | number | null;
+  like_count?: string | number | null;
+  reply_count?: string | number | null;
+  retweet_count?: string | number | null;
+  category?: number;
+  feature_image?: string | null;
+  nick_name?: string | null;
+  is_blue_verified?: boolean;
+  verified_type?: string | null;
+  matched_currencies?: Array<{ currency_id?: string; symbol?: string; name?: string }> | null;
+  tags?: string[];
+  media_info?: Array<{ soso_url?: string | null; original_url?: string | null; type?: string }> | null;
+  quote_info?: unknown;
+}
+
+export interface IntelligenceItem {
+  id: string;
+  category: number;
+  title: string | null;
+  content: string;
+  url: string;
+  publishedAt: string;
+  author: string;
+  authorDisplayName: string | null;
+  authorAvatar: string | null;
+  isVerified: boolean;
+  likes: number;
+  replies: number;
+  retweets: number;
+  impressions: number;
+  matchedCoins: Array<{ symbol: string; name: string }>;
+  tags: string[];
+  imageUrl: string | null;
+}
+
+export interface IntelligenceResponse {
+  news: IntelligenceItem[];
+  kolViews: IntelligenceItem[];
+  alerts: IntelligenceItem[];
+  fetchedAt: string;
+}
+
+function parseNum(v: string | number | null | undefined): number {
+  if (v == null) return 0;
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function mapRawItem(raw: SoSoRawItem, idx: number): IntelligenceItem {
+  const rawContent = raw.content ?? "";
+  const cleanContent = stripHtml(rawContent);
+  const imageFromContent = extractImageUrl(rawContent);
+  const imageFromMedia = raw.media_info?.find(m => m.type === "photo" && m.soso_url)?.soso_url ?? null;
+
+  const releaseMs = raw.release_time ? Number(raw.release_time) : Date.now();
+  const publishedAt = new Date(releaseMs).toISOString();
+
+  const matchedCoins = (raw.matched_currencies ?? [])
+    .filter(c => c.symbol && !c.symbol.startsWith("."))
+    .map(c => ({ symbol: c.symbol!, name: c.name ?? c.symbol! }));
+
+  return {
+    id:              String(raw.id ?? idx),
+    category:        raw.category ?? 1,
+    title:           raw.title && raw.title.trim() ? raw.title : null,
+    content:         cleanContent,
+    url:             raw.source_link ?? raw.original_link ?? "#",
+    publishedAt,
+    author:          raw.author ?? "",
+    authorDisplayName: raw.nick_name ?? raw.author ?? null,
+    authorAvatar:    raw.author_avatar_url ?? null,
+    isVerified:      raw.is_blue_verified ?? false,
+    likes:           parseNum(raw.like_count),
+    replies:         parseNum(raw.reply_count),
+    retweets:        parseNum(raw.retweet_count),
+    impressions:     parseNum(raw.impression_count),
+    matchedCoins,
+    tags:            (raw.tags ?? []).filter(t => /^[a-zA-Z0-9]/.test(t)),
+    imageUrl:        imageFromMedia ?? imageFromContent,
+  };
+}
+
+/** Fetch and cache raw items from SoSoValue news endpoint */
+async function fetchRawItems(limit = 40): Promise<SoSoRawItem[]> {
+  const cached = getCached<SoSoRawItem[]>("soso_raw");
+  if (cached) return cached;
+
+  const res = await fetch(`${SOSO_BASE}/news?limit=${limit}`, {
+    headers: { "x-soso-api-key": SOSO_KEY },
+    signal: AbortSignal.timeout(8000),
+  });
+  const json = await res.json() as { code: number; data?: { list?: SoSoRawItem[] } | SoSoRawItem[] };
+
+  let raw: SoSoRawItem[] = [];
+
+  if (json.code === 0 || json.code === undefined) {
+    if (Array.isArray(json.data)) {
+      raw = json.data;
+    } else if (json.data && Array.isArray((json.data as { list?: SoSoRawItem[] }).list)) {
+      raw = (json.data as { list: SoSoRawItem[] }).list;
+    }
+  } else {
+    throw new Error(`SoSoValue error code ${json.code}`);
+  }
+
+  setCached("soso_raw", raw, 5 * 60_000);
+  return raw;
+}
+
+// ── Legacy news interface (used by MarketVibe) ──────────────────────────────
 export interface NewsItem {
   id: string;
   title: string;
@@ -106,50 +238,50 @@ export interface NewsItem {
 }
 
 export async function getNews(limit = 10): Promise<NewsItem[]> {
-  const cached = getCached<NewsItem[]>("news");
-  if (cached) return cached.slice(0, limit);
-
   try {
-    const res = await fetch(`${SOSO_BASE}/news?limit=20`, {
-      headers: { "x-soso-api-key": SOSO_KEY },
-      signal: AbortSignal.timeout(8000),
-    });
-    const json = await res.json() as {
-      code: number;
-      data: Array<{
-        id?: string;
-        newsId?: string;
-        title?: string;
-        titleEn?: string;
-        url?: string;
-        link?: string;
-        publishedAt?: string;
-        publishTime?: number;
-        source?: string;
-        sourceName?: string;
-        summary?: string;
-        relatedCoins?: string[];
-        coins?: string[];
-      }>;
-    };
-
-    if (json.code !== 0 && json.code !== undefined) throw new Error(`SoSo error ${json.code}`);
-
-    const items: NewsItem[] = (json.data ?? []).map((n, i) => ({
-      id:          String(n.id ?? n.newsId ?? i),
-      title:       n.titleEn ?? n.title ?? "",
-      url:         n.url ?? n.link ?? "#",
-      publishedAt: n.publishedAt ?? (n.publishTime ? new Date(n.publishTime).toISOString() : new Date().toISOString()),
-      source:      n.sourceName ?? n.source ?? "SoSoValue",
-      summary:     n.summary,
-      coins:       n.relatedCoins ?? n.coins,
-    }));
-
+    const raw = await fetchRawItems(20);
+    const items: NewsItem[] = raw
+      .filter(r => r.category === 1 || (r.title && r.title.trim()))
+      .map((r, i) => ({
+        id:          String(r.id ?? i),
+        title:       r.title?.trim() || stripHtml(r.content ?? "").slice(0, 120),
+        url:         r.source_link ?? r.original_link ?? "#",
+        publishedAt: new Date(Number(r.release_time ?? Date.now())).toISOString(),
+        source:      r.nick_name ?? r.author ?? "SoSoValue",
+        summary:     r.content ? stripHtml(r.content).slice(0, 200) : undefined,
+        coins:       (r.matched_currencies ?? []).map(c => c.symbol!).filter(Boolean),
+      }));
     setCached("news", items, 5 * 60_000);
     return items.slice(0, limit);
   } catch (err) {
     logger.warn({ err }, "SoSoValue news fetch failed");
     return getCached<NewsItem[]>("news")?.slice(0, limit) ?? [];
+  }
+}
+
+// ── Rich intelligence endpoint ──────────────────────────────────────────────
+export async function getIntelligence(): Promise<IntelligenceResponse> {
+  const cached = getCached<IntelligenceResponse>("intelligence");
+  if (cached) return cached;
+
+  try {
+    const raw = await fetchRawItems(40);
+    const items = raw.map((r, i) => mapRawItem(r, i));
+
+    const result: IntelligenceResponse = {
+      news:     items.filter(i => i.category === 1).slice(0, 8),
+      kolViews: items.filter(i => i.category === 4).slice(0, 8),
+      alerts:   items.filter(i => i.category === 7 || i.category === 13).slice(0, 8),
+      fetchedAt: new Date().toISOString(),
+    };
+
+    setCached("intelligence", result, 5 * 60_000);
+    return result;
+  } catch (err) {
+    logger.warn({ err }, "SoSoValue intelligence fetch failed");
+    return getCached<IntelligenceResponse>("intelligence") ?? {
+      news: [], kolViews: [], alerts: [], fetchedAt: new Date().toISOString(),
+    };
   }
 }
 
@@ -244,16 +376,6 @@ interface SodexRawTrade {
   q: string;
 }
 
-/**
- * Primary path: read the WS-maintained rolling fill window from market-activity.
- * REST is only consulted when WS has no data for the symbol (fresh boot,
- * symbol the WS feed has never quoted, or recovery after a long disconnect).
- *
- * The `tradeId` for snapshot-derived fills is synthesised as `ts:price:qty`
- * since WS trade frames don't always carry the same numeric ID the REST feed
- * uses. `verifySodexTrade` falls back to the REST path when given a numeric
- * Sodex trade ID, so verification is unaffected.
- */
 export async function getFills(symbol: string, limit = 50): Promise<SodexFill[]> {
   const sodexSym = SODEX_SYMBOL[symbol] ?? symbol;
   const uiSym   = REVERSE[sodexSym] ?? sodexSym;
@@ -324,7 +446,6 @@ export async function verifySodexTrade(
       return { verified: false, reason: `Side mismatch: expected ${sodexSide}, got ${match.side}` };
     }
 
-    // Tolerance derived from the symbol's tick size (≥ 5 ticks or 2% — whichever is smaller).
     const meta = getSymbolMeta(SODEX_SYMBOL[symbol] ?? symbol);
     const tickTol = meta && claimedPrice > 0 ? Math.max((meta.tickSize * 5) / claimedPrice, 0.001) : 0.02;
     const tolerance = Math.min(tickTol, 0.02);

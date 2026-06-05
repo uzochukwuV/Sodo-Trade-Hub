@@ -1,0 +1,67 @@
+Voted (1st Wave)
+SoSoValueIndexes
+SoSoValueIndexes
+2026-05-22 11:48
+Based on the Product Reviewers’ star ratings and comments, as well as the SSI Team’s review, we have decided to allocate this score. We look forward to seeing further development in the next phase.
+
+ 
+Voted (1st Wave)
+SoDEX
+SoDEX
+2026-05-22 06:09
+Based on the Product Reviewers’ star ratings and comments, as well as the SoDEX Team’s review, we have decided to allocate this score. We look forward to seeing more practical progress in the next phase.
+
+ 
+Voted (1st Wave)
+takimi
+takimi
+2026-05-17 09:17
+The standout achievement is the Sodex Trade Verification System; validating submitted trade IDs against live fills and applying a 'SODEX VERIFIED' badge establishes an immediate, un-gameable trust layer. Combined with the native signal resolution engine and a rigorous OpenAPI/TypeScript refactor that ensures clean monorepo typechecks, you have successfully transformed a conceptual social feed into a bulletproof, high-fidelity infrastructure tool.
+
+ 
+Voted (1st Wave)
+MuhammadBa_2024
+MuhammadBa_2024
+2026-05-16 07:08
+A strong engineering heavy social trading infrastructure with real exchange integration, but still evolving toward a true intelligence and decision making product.
+
+ 
+Voted (1st Wave)
+0xmiharbi
+0xmiharbi
+2026-05-15 21:21
+Sogram is a strong and ambitious social trading layer built on real SoDEX activity, with solid infrastructure around trader analytics, live feeds, reputation scoring, and trade verification. The use of real market data, wallet behavior tracking, and trader graph concepts gives it meaningful depth beyond a typical dashboard and makes the system feel genuinely useful for understanding market participants rather than just prices. The overall UX is expressive and engaging, fitting the social trading direction of the product, even if it still feels early in refinement. Core strengths lie in its real-time data integration and behavioral intelligence layer, while the main gaps are it meme-like trading platform and maturity of execution rather than fundamentals. Still, good work!
+
+ 
+Voted (1st Wave)
+Davislambo
+Davislambo
+2026-05-15 15:29
+Sodo Trade Hub delivered the most technically substantive wave upgrade in this batch. The shift to real Sodex data, the trade verification system, fills-based signal resolution, and clean TypeScript compilation represent genuine engineering output rather than UI polish. The SoSoValue integration story needs to be made more explicit, and the deployment platform (Replit) is a reliability concern for a trading product. The next wave should focus on: (1) making the SoSoValue data layer visible and documented, (2) migrating to a more reliable deployment host, and (3) showing at least one complete user journey from discovering a trader, verifying their trades, to following their signal end-to-end in the demo.
+
+ 
+Voted (1st Wave)
+crypto4chun
+crypto4chun
+2026-05-15 13:59
+Sogram delivers a strong social-trading infrastructure layer built around real SoDEX market activity, verified trade validation, and live signal resolution. The focus on trader credibility, fills-based verification, reputation systems, and exchange-native data creates a much more trustworthy and technically grounded social trading experience than typical copy-trading dashboards.
+
+ 
+Voted (1st Wave)
+jzddd
+jzddd
+2026-05-14 14:53
+Sodo is a differentiated submission. Instead of building another signal bot, it focuses on a SoDEX social trading and trader-intelligence layer. Turning real trading activity into verified trader profiles, PnL, win rate, reputation, live feeds, and a Trader Graph is a useful direction. It could be more trustworthy than traditional social trading communities based on screenshots and unverifiable claims.
+
+The main limitation is that the SoSoValue integration appears relatively weak; the project is mostly centered on SoDEX trading activity and social features. AI market summaries are also still planned. Core claims such as trader reputation, PnL accuracy, wallet clustering, and behavioral graph analysis need stronger demo evidence, real examples, anti-gaming design, and risk warnings.
+
+Overall, this is a promising social trading infrastructure prototype, but it needs stronger data validation and a clearer product loop.
+
+ 
+Voted (1st Wave)
+SmartCoded
+SmartCoded
+2026-05-14 14:21
+Real Sodex trade verification (matching claimed trade IDs against the live fills feed plus side and price tolerance) is the trust layer most social trading products fake. SODEX VERIFIED badge with actual verification is rare. Wave 2: show one verified trade end to end on the live demo.
+
+ 
