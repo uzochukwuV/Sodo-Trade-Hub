@@ -21,6 +21,7 @@ import graphRouter from "./graph";
 import riskRouter from "./risk";
 import streamRouter from "./stream";
 import accountsRouter from "./accounts";
+import aiRouter from "./ai";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(graphRouter);
 router.use(riskRouter);
 router.use(streamRouter);
 router.use(accountsRouter);
+router.use(aiRouter);
 
 export default router;

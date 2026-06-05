@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListCopyConfigs, useListTraders, useUpsertCopyConfig } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,6 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
     <div
       onClick={() => onChange(!value)}
       className={`w-[38px] h-[22px] relative cursor-pointer transition-colors shrink-0 ${value ? "bg-accent" : "bg-border"}`}
-      data-testid="toggle-active"
     >
       <div className={`absolute top-[3px] w-4 h-4 transition-all ${value ? "left-[19px] bg-background" : "left-[3px] bg-muted-foreground"}`} />
     </div>
@@ -35,11 +34,91 @@ function Slider({ value, onChange, min = 0, max = 100, accent = false }: {
   );
 }
 
-function fmtPnl(usd: string) {
+function fmtPnl(usd: string | number) {
   const n = Number(usd);
   if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
   if (n >= 1e3) return "$" + (n / 1e3).toFixed(1) + "K";
-  return "$" + n.toFixed(0);
+  if (n <= -1e6) return "-$" + (Math.abs(n) / 1e6).toFixed(2) + "M";
+  if (n <= -1e3) return "-$" + (Math.abs(n) / 1e3).toFixed(1) + "K";
+  return (n >= 0 ? "+" : "") + "$" + n.toFixed(0);
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+interface LeaderTrade {
+  id: number;
+  asset: string;
+  side: "LONG" | "SHORT";
+  realizedPnlUsd: string;
+  createdAt: string;
+  isOnChainVerified: boolean;
+  txHash?: string | null;
+  leverage: number;
+}
+
+function LeaderTradeHistory({ traderId }: { traderId: number }) {
+  const [trades, setTrades] = useState<LeaderTrade[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/traders/${traderId}/trades?limit=8`)
+      .then(r => r.json())
+      .then(d => { setTrades(d.trades ?? []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [traderId]);
+
+  if (loading) return (
+    <div className="border border-border bg-card p-4">
+      <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground mb-3">RECENT TRADES</div>
+      <div className="flex flex-col gap-2">
+        {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+      </div>
+    </div>
+  );
+
+  if (trades.length === 0) return (
+    <div className="border border-border bg-card p-4">
+      <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground mb-2">RECENT TRADES</div>
+      <div className="text-muted-foreground text-[11px]">No closed trades on record.</div>
+    </div>
+  );
+
+  return (
+    <div className="border border-border bg-card p-4">
+      <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground mb-3">RECENT TRADES</div>
+      <div className="flex flex-col gap-0">
+        {trades.map((t, i) => {
+          const pnl = Number(t.realizedPnlUsd);
+          const isWin = pnl >= 0;
+          return (
+            <div key={t.id} className={`flex items-center gap-3 py-2.5 ${i < trades.length - 1 ? "border-b border-border/40" : ""}`}>
+              <span className={`text-[9px] px-1.5 py-0.5 font-black tracking-wider border ${
+                t.side === "LONG" ? "border-accent/40 text-accent" : "border-destructive/40 text-destructive"
+              }`}>{t.side}</span>
+              <span className="text-white text-[11px] font-bold flex-1">{t.asset}</span>
+              <span className="text-muted-foreground text-[10px] font-mono">{t.leverage}×</span>
+              <span className={`text-[12px] font-black font-mono ${isWin ? "text-green-400" : "text-destructive"}`}>
+                {fmtPnl(t.realizedPnlUsd)}
+              </span>
+              {t.isOnChainVerified && (
+                <span className="text-accent text-[8px] font-black tracking-wider border border-accent/30 px-1">✓</span>
+              )}
+              <span className="text-muted-foreground text-[9px]">{timeAgo(t.createdAt)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function CopyTrading() {
@@ -101,6 +180,7 @@ export default function CopyTrading() {
   return (
     <div className="px-8 pb-10 max-w-[1000px] w-full pt-8">
       <div className="grid grid-cols-[300px_1fr] gap-5">
+        {/* ── LEFT: Leader list ── */}
         <div>
           <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground mb-3.5 uppercase">SELECT LEADER</div>
           <div className="flex flex-col gap-2 mb-5">
@@ -110,7 +190,6 @@ export default function CopyTrading() {
                 <div
                   key={l.id}
                   onClick={() => setSelectedLeaderId(l.id)}
-                  data-testid={`select-leader-${l.id}`}
                   className={`border p-3.5 cursor-pointer transition-colors ${
                     isSelected ? "border-accent bg-accent/5" : "border-border bg-card hover:border-border/80"
                   }`}
@@ -168,6 +247,7 @@ export default function CopyTrading() {
           </div>
         </div>
 
+        {/* ── RIGHT: Settings + trade history ── */}
         {leader ? (
           <div className="flex flex-col gap-3.5">
             <div className="border border-border p-6 bg-card">
@@ -200,9 +280,9 @@ export default function CopyTrading() {
                   <div className="text-muted-foreground text-[10px] font-extrabold tracking-wider mb-3">LEADER REPUTATION</div>
                   <div className="space-y-2">
                     {[
-                      { label: "WIN RATE",         val: Number(leader.winRate),                  color: "bg-accent" },
-                      { label: "SIGNAL ACCURACY",  val: Number(leader.signalAccuracy ?? 0),      color: "bg-blue-400" },
-                      { label: "MENTOR SCORE",     val: Number(leader.mentorScore ?? 0),         color: "bg-purple-400" },
+                      { label: "WIN RATE",        val: Number(leader.winRate),              color: "bg-accent" },
+                      { label: "SIGNAL ACCURACY", val: Number(leader.signalAccuracy ?? 0),  color: "bg-blue-400" },
+                      { label: "MENTOR SCORE",    val: Number(leader.mentorScore ?? 0),     color: "bg-purple-400" },
                     ].map(({ label, val, color }) => (
                       <div key={label} className="flex items-center gap-2">
                         <span className="text-[8px] font-extrabold tracking-wider text-muted-foreground w-[100px]">{label}</span>
@@ -213,7 +293,11 @@ export default function CopyTrading() {
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-border">
+                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border">
+                    <div>
+                      <div className="text-muted-foreground text-[8px] font-bold tracking-wider">REP SCORE</div>
+                      <div className="text-accent font-black font-mono text-sm">{Number(leader.repScore).toFixed(0)}</div>
+                    </div>
                     <div>
                       <div className="text-muted-foreground text-[8px] font-bold tracking-wider">STREAK</div>
                       <div className="text-accent font-black font-mono text-sm">{leader.streakDays ?? 0}D</div>
@@ -226,6 +310,9 @@ export default function CopyTrading() {
                 </div>
               </div>
             </div>
+
+            {/* ── Leader trade history ── */}
+            <LeaderTradeHistory traderId={leader.id} />
 
             <div className={`border p-4 flex items-center gap-3.5 transition-colors ${active ? "border-accent/40 bg-accent/5" : "border-border bg-transparent"}`}>
               <div className={`w-2 h-2 rounded-full shrink-0 ${active ? "bg-accent animate-pulse" : "bg-muted-foreground"}`} />
@@ -240,7 +327,6 @@ export default function CopyTrading() {
             </div>
 
             <button
-              data-testid="button-activate-copy"
               onClick={handleActivate}
               disabled={isPending || myId === null}
               className="bg-accent text-background border-none p-4 font-black text-sm cursor-pointer tracking-widest w-full hover:bg-accent/90 transition-colors uppercase disabled:opacity-50"

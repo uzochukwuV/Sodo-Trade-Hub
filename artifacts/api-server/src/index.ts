@@ -13,6 +13,7 @@ import {
   knownSymbols,
 } from "./services/market-activity";
 import { bootstrapWalletSubs } from "./services/wallet-subs";
+import { startAiAgent } from "./services/ai-agent";
 
 const rawPort = process.env["PORT"];
 
@@ -55,4 +56,5 @@ app.listen(port, (err) => {
   startSignalResolver(60_000);
   startTrackerPoller(60 * 60_000);    // hourly leaderboard refresh
   startSignalPoller(5 * 60_000);      // 5-min REST safety net (WS is primary)
+  startAiAgent(15 * 60_000);          // AI agent: post intents + signals every 15 min
 });
