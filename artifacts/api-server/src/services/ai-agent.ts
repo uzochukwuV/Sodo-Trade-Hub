@@ -15,14 +15,24 @@ import { getNews } from "./market";
 import { logger } from "../lib/logger";
 
 // ── OpenRouter client (OpenAI-compatible) ────────────────────────────────────
-const openrouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY ?? "",
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: {
-    "HTTP-Referer": "https://sogram.app",
-    "X-Title": "Sogram AI Agent",
-  },
-});
+// Lazy singleton — only instantiated when OPENROUTER_API_KEY is present so the
+// server can boot without the key (AI features will simply be skipped).
+let _openrouter: OpenAI | null = null;
+function getOpenRouter(): OpenAI {
+  if (!_openrouter) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set — AI agent disabled");
+    _openrouter = new OpenAI({
+      apiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": "https://sogram.app",
+        "X-Title": "Sogram AI Agent",
+      },
+    });
+  }
+  return _openrouter;
+}
 
 const AI_MODEL = "openai/gpt-4o-mini";
 const AI_USERNAME = "SOGRAM_AI";
@@ -157,7 +167,7 @@ export async function runAiAgent(): Promise<{ intentsPosted: number; signalsPost
 
     logger.info({ model: AI_MODEL }, "ai_agent.calling_openrouter");
 
-    const completion = await openrouter.chat.completions.create({
+    const completion = await getOpenRouter().chat.completions.create({
       model: AI_MODEL,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,

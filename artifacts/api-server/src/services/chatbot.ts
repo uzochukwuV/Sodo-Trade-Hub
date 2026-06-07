@@ -15,19 +15,28 @@ import { getMarketPrices, getNews, getMarketVibeSummary } from "./market";
 import { logger } from "../lib/logger";
 
 // ── Model ─────────────────────────────────────────────────────────────────────
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY ?? "",
-  configuration: {
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "https://sogram.app",
-      "X-Title": "Sogram Chat Agent",
-    },
-  },
-  modelName: "openai/gpt-4o-mini",
-  temperature: 0.5,
-  maxTokens: 600,
-});
+// Lazy singleton — only instantiated when OPENROUTER_API_KEY is present.
+let _model: ChatOpenAI | null = null;
+function getModel(): ChatOpenAI {
+  if (!_model) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set — chat disabled");
+    _model = new ChatOpenAI({
+      apiKey,
+      configuration: {
+        baseURL: "https://openrouter.ai/api/v1",
+        defaultHeaders: {
+          "HTTP-Referer": "https://sogram.app",
+          "X-Title": "Sogram Chat Agent",
+        },
+      },
+      modelName: "openai/gpt-4o-mini",
+      temperature: 0.5,
+      maxTokens: 600,
+    });
+  }
+  return _model;
+}
 
 // ── Tools ─────────────────────────────────────────────────────────────────────
 const TOOLS = [
@@ -174,9 +183,6 @@ const TOOLS = [
 // Build a lookup map for execution
 const TOOL_MAP = Object.fromEntries(TOOLS.map(t => [t.name, t]));
 
-// Model with tools bound (OpenAI function-calling format)
-const modelWithTools = model.bindTools(TOOLS);
-
 // ── System prompt ─────────────────────────────────────────────────────────────
 const SYSTEM = `You are SOGRAM, an expert crypto trading AI assistant on the Sogram social trading platform.
 
@@ -219,7 +225,7 @@ export async function runChat(messages: ChatMessage[]): Promise<string> {
 
     // Tool-calling loop (max 4 iterations)
     for (let i = 0; i < 4; i++) {
-      const response = await (i === 0 ? modelWithTools : model.bindTools(TOOLS)).invoke(lcMessages);
+      const response = await getModel().bindTools(TOOLS).invoke(lcMessages);
 
       // If no tool calls → final answer
       const toolCalls = response.tool_calls ?? [];
