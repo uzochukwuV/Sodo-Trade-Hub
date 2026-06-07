@@ -1,11 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import pinoHttpModule from "pino-http";
-// pino-http v10 ships as CJS; under bundler moduleResolution the namespace has no
-// call signature directly — unwrap .default when it exists.
-const pinoHttp = (typeof (pinoHttpModule as unknown as { default: unknown }).default === "function"
-  ? (pinoHttpModule as unknown as { default: typeof pinoHttpModule }).default
-  : pinoHttpModule) as typeof pinoHttpModule;
+import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
