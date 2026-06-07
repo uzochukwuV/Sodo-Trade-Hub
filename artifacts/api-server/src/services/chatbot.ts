@@ -63,7 +63,7 @@ const TOOLS = [
     schema: z.object({}),
     func: async () => {
       const news = await getNews(8);
-      return JSON.stringify(news.map(n => ({ title: n.title, coins: n.coins, date: n.date })));
+      return JSON.stringify(news.map(n => ({ title: n.title, coins: n.coins, date: n.publishedAt })));
     },
   }),
 
@@ -146,7 +146,6 @@ const TOOLS = [
           reasoning: tradeIntentsTable.reasoning,
           votesValid: tradeIntentsTable.votesValid,
           votesInvalid: tradeIntentsTable.votesInvalid,
-          validPct: tradeIntentsTable.validPct,
         })
         .from(tradeIntentsTable)
         .where(eq(tradeIntentsTable.status, "open"))
@@ -215,7 +214,8 @@ export async function runChat(messages: ChatMessage[]): Promise<string> {
     }
 
     // Build message history for LangChain
-    const lcMessages = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lcMessages: any[] = [
       new SystemMessage(SYSTEM),
       ...messages.slice(0, -1).map(m =>
         m.role === "user" ? new HumanMessage(m.content) : new AIMessage(m.content)
@@ -246,7 +246,8 @@ export async function runChat(messages: ChatMessage[]): Promise<string> {
         const tool = TOOL_MAP[call.name];
         let result: string;
         try {
-          result = tool ? await tool.invoke(call.args as Record<string, unknown>) : `Unknown tool: ${call.name}`;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          result = tool ? await (tool as any).invoke(call.args) : `Unknown tool: ${call.name}`;
         } catch (err) {
           result = `Tool error: ${err instanceof Error ? err.message : "unknown"}`;
         }
