@@ -1,0 +1,129 @@
+Sodo is a strong real-time social trading intelligence layer built on top of actual SoDEX trading activity.
+
+Strengths:
+
+Real wallet-based trader analytics (PnL, win rate, behavior tracking)
+Trader Graph concept adds meaningful network intelligence
+Strong integration of live trading data + behavioral clustering
+Clear positioning as a trading intelligence network rather than a signal bot
+
+Weaknesses:
+
+Product scope is slightly broad (feeds, graph, copy-trading all together)
+AI layer is relatively light compared to data/infra focus
+UX feels more like a prototype than a refined product
+
+Overall, a solid attempt at building a real-time on-chain trader intelligence network with strong data foundations.
+
+ 
+Voted (2nd Wave)
+0xmiharbi
+0xmiharbi
+2026-06-12 21:02
+Sogram presents an ambitious concept that extends beyond basic trading dashboards into a real-time social intelligence layer for on-chain trading activity. However, despite how the design and intended system are well articulated, the lack of a verifiable live demo makes it difficult to confirm the completeness, stability, or real-time performance of the described ingestion pipelines and analytics engine. As with several similar submissions, much of the value currently lies in the proposed system design rather than demonstrable end-to-end execution. 
+
+ 
+Voted (2nd Wave)
+Web3Lord01
+Web3Lord01
+2026-06-12 19:15
+Sodo has the most original product angle in this batch, a verified social trading layer built directly on real SoDEX activity, where every signal comes from actual wallet behavior rather than screenshots. The Trader Graph mapping which wallets enter together and lead versus follow moves is genuinely valuable intelligence. Reverse engineering explorer endpoints to build accurate trader intelligence shows real determination. The live market dashboard with 30 markets, funding data, and sentiment indicators built from SoDEX data is functional. SoSoValue integration depth could be stronger, it appears supplementary rather than central to the core experience.
+
+ 
+Voted (2nd Wave)
+Davislambo
+Davislambo
+2026-06-12 14:25
+Sodo Trade Hub tackles the most social and behaviorally interesting use case in the wave, a verified social trading layer built directly on real SoDEX activity, with wallet-linked trader profiles, real PnL metrics, win rates from actual positions, and a Trader Graph mapping behavioral relationships between wallets. Moving from mock data to live SoDEX and ValueChain explorer data is the most significant Wave 2 achievement. The 30-market intelligence dashboard and live feed of real closed trades are concrete deliverables. The gaps are a Replit deployment URL that may be unstable for judging, SoSoValue integration described but not detailed in the submission, and AI/OpenRouter listed as planned. For wave 3, stabilizing the deployment and making SoSoValue data visible in the feed would complete the intelligence layer.
+
+ 
+Voted (2nd Wave)
+MuhammadBa_2024
+MuhammadBa_2024
+2026-06-12 09:23
+A high potential execution layer social trading product, but currently held back by branding inconsistency, unclear system explainability and limited performance validation. With cleanup of identity and stronger transparency in ranking logic, it could stand out significantly more in Wave 3.
+
+ 
+Voted (2nd Wave)
+BlessinSum
+BlessinSum
+2026-06-12 04:34
+Sodo Trade Hub has one of the most original angles in this buildathon, a real-time social trading layer built directly on live SoDEX activity rather than simulated signals. Verified wallet profiles with explorer-linked identity, real PnL from actual positions, win rate from genuine trade history, and a feed of real closed trades from profitable wallets is exactly the credibility layer social trading has always lacked. The Trader Graph mapping which wallets enter together, rotate narratives, and lead versus follow moves is a genuinely valuable analytical feature. Moving from mock data to real exchange-driven data required reverse engineering explorer behavior, that's honest, hard work. SoSoValue APIs and SoDEX are both meaningfully integrated. For Wave 3, real-time WebSocket ingestion and AI-generated market summaries would complete the social intelligence network this product is building toward.
+
+ 
+Voted (2nd Wave)
+Goodynation
+Goodynation
+2026-06-12 00:06
+This update presents an excellent conceptual blueprint for a data-driven social trading portal, detailing a robust shift away from hardcoded content toward verified, wallet-derived trader activity and risk profiles. The structural layout for the signal feed and the 30-market dashboard outlines an engaging terminal experience.
+
+from both a technical and compliance standpoint, this submission hits major, high-severity blockers. The complete absence of a production-hosted live demo prevents any interactive verification of the platform features. More critically, the project lacks both the mandatory SoSoValue API integration and the foundational SoDEX linking required by the hackathon track rules.
+
+Strong ideas, but compliant execution and deployment are required.
+
+ 
+Voted (1st Wave)
+SoSoValueIndexes
+SoSoValueIndexes
+2026-05-22 11:48
+Based on the Product Reviewers’ star ratings and comments, as well as the SSI Team’s review, we have decided to allocate this score. We look forward to seeing further development in the next phase.
+
+ 
+Voted (1st Wave)
+SoDEX
+SoDEX
+2026-05-22 06:09
+Based on the Product Reviewers’ star ratings and comments, as well as the SoDEX Team’s review, we have decided to allocate this score. We look forward to seeing more practical progress in the next phase.
+
+ 
+Voted (1st Wave)
+takimi
+takimi
+2026-05-17 09:17
+The standout achievement is the Sodex Trade Verification System; validating submitted trade IDs against live fills and applying a 'SODEX VERIFIED' badge establishes an immediate, un-gameable trust layer. Combined with the native signal resolution engine and a rigorous OpenAPI/TypeScript refactor that ensures clean monorepo typechecks, you have successfully transformed a conceptual social feed into a bulletproof, high-fidelity infrastructure tool.
+
+ 
+Voted (1st Wave)
+MuhammadBa_2024
+MuhammadBa_2024
+2026-05-16 07:08
+A strong engineering heavy social trading infrastructure with real exchange integration, but still evolving toward a true intelligence and decision making product.
+
+ 
+Voted (1st Wave)
+0xmiharbi
+0xmiharbi
+2026-05-15 21:21
+Sogram is a strong and ambitious social trading layer built on real SoDEX activity, with solid infrastructure around trader analytics, live feeds, reputation scoring, and trade verification. The use of real market data, wallet behavior tracking, and trader graph concepts gives it meaningful depth beyond a typical dashboard and makes the system feel genuinely useful for understanding market participants rather than just prices. The overall UX is expressive and engaging, fitting the social trading direction of the product, even if it still feels early in refinement. Core strengths lie in its real-time data integration and behavioral intelligence layer, while the main gaps are it meme-like trading platform and maturity of execution rather than fundamentals. Still, good work!
+
+ 
+Voted (1st Wave)
+Davislambo
+Davislambo
+2026-05-15 15:29
+Sodo Trade Hub delivered the most technically substantive wave upgrade in this batch. The shift to real Sodex data, the trade verification system, fills-based signal resolution, and clean TypeScript compilation represent genuine engineering output rather than UI polish. The SoSoValue integration story needs to be made more explicit, and the deployment platform (Replit) is a reliability concern for a trading product. The next wave should focus on: (1) making the SoSoValue data layer visible and documented, (2) migrating to a more reliable deployment host, and (3) showing at least one complete user journey from discovering a trader, verifying their trades, to following their signal end-to-end in the demo.
+
+ 
+Voted (1st Wave)
+crypto4chun
+crypto4chun
+2026-05-15 13:59
+Sogram delivers a strong social-trading infrastructure layer built around real SoDEX market activity, verified trade validation, and live signal resolution. The focus on trader credibility, fills-based verification, reputation systems, and exchange-native data creates a much more trustworthy and technically grounded social trading experience than typical copy-trading dashboards.
+
+ 
+Voted (1st Wave)
+jzddd
+jzddd
+2026-05-14 14:53
+Sodo is a differentiated submission. Instead of building another signal bot, it focuses on a SoDEX social trading and trader-intelligence layer. Turning real trading activity into verified trader profiles, PnL, win rate, reputation, live feeds, and a Trader Graph is a useful direction. It could be more trustworthy than traditional social trading communities based on screenshots and unverifiable claims.
+
+The main limitation is that the SoSoValue integration appears relatively weak; the project is mostly centered on SoDEX trading activity and social features. AI market summaries are also still planned. Core claims such as trader reputation, PnL accuracy, wallet clustering, and behavioral graph analysis need stronger demo evidence, real examples, anti-gaming design, and risk warnings.
+
+Overall, this is a promising social trading infrastructure prototype, but it needs stronger data validation and a clearer product loop.
+
+ 
+Voted (1st Wave)
+SmartCoded
+SmartCoded
+2026-05-14 14:21
+Real Sodex trade verification (matching claimed trade IDs against the live fills feed plus side and price tolerance) is the trust layer most social trading products fake. SODEX VERIFIED badge with actual verification is rare. Wave 2: show one verified trade end to end on the live demo.
