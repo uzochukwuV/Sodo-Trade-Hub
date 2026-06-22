@@ -23,6 +23,7 @@ import streamRouter from "./stream";
 import accountsRouter from "./accounts";
 import aiRouter from "./ai";
 import chatRouter from "./chat";
+import telegramRouter from "./telegram";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(streamRouter);
 router.use(accountsRouter);
 router.use(aiRouter);
 router.use(chatRouter);
+router.use(telegramRouter);
 
 export default router;

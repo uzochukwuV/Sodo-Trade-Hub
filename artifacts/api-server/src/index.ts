@@ -14,6 +14,7 @@ import {
 } from "./services/market-activity";
 import { bootstrapWalletSubs } from "./services/wallet-subs";
 import { startAiAgent } from "./services/ai-agent";
+import { startTelegramBot } from "./services/telegram";
 
 const rawPort = process.env["PORT"];
 
@@ -57,4 +58,5 @@ app.listen(port, (err) => {
   startTrackerPoller(30 * 60_000);    // leaderboard refresh every 30 min; auto-boots on empty DB
   startSignalPoller(5 * 60_000);      // 5-min REST safety net (WS is primary)
   startAiAgent(15 * 60_000);          // AI agent: post intents + signals every 15 min
+  startTelegramBot();                  // Telegram alerts for notable trades (DIAMOND/GOLD tier)
 });
