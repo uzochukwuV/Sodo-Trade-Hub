@@ -657,38 +657,62 @@ function SoSoValueIntelligence() {
   });
 
   const tabs: { key: IntelTab; label: string; count: number }[] = [
-    { key: "news",   label: "NEWS",     count: data?.news?.length ?? 0 },
+    { key: "news",   label: "NEWS",      count: data?.news?.length ?? 0 },
     { key: "kol",    label: "KOL VIEWS", count: data?.kolViews?.length ?? 0 },
-    { key: "alerts", label: "ALERTS",   count: data?.alerts?.length ?? 0 },
+    { key: "alerts", label: "ALERTS",    count: data?.alerts?.length ?? 0 },
   ];
 
   const items = tab === "news" ? data?.news : tab === "kol" ? data?.kolViews : data?.alerts;
 
   return (
     <div style={{
-      border: "1px solid rgba(212,255,0,0.18)",
-      background: "linear-gradient(160deg, rgba(212,255,0,0.025) 0%, rgba(0,0,0,0) 60%)",
-      marginBottom: 6,
+      border: "1px solid rgba(212,255,0,0.25)",
+      background: "linear-gradient(160deg, rgba(212,255,0,0.04) 0%, rgba(0,0,0,0) 50%)",
+      marginBottom: 12,
     }}>
       {/* Header */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(212,255,0,0.03)",
       }}>
-        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#D4FF00" }} />
-        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.16em", color: "#D4FF00" }}>SOSOVALUE INTELLIGENCE</span>
-        <span style={{
-          marginLeft: "auto", fontSize: 8, fontWeight: 700, letterSpacing: "0.08em",
-          color: "#444", padding: "2px 6px", border: "1px solid rgba(255,255,255,0.08)",
-        }}>POWERED BY SOSOVALUE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#D4FF00", boxShadow: "0 0 6px #D4FF00" }} />
+          <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.18em", color: "#D4FF00" }}>
+            SOSOVALUE INTELLIGENCE
+          </span>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {data?.fetchedAt && (
+            <span style={{ fontSize: 8, color: "#444", fontFamily: "JetBrains Mono, monospace" }}>
+              {intelTimeAgo(data.fetchedAt)} ago
+            </span>
+          )}
+          <a
+            href="https://sosovalue.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 9, fontWeight: 800, letterSpacing: "0.1em",
+              color: "#666", padding: "3px 8px",
+              border: "1px solid rgba(255,255,255,0.12)",
+              textDecoration: "none",
+              transition: "color 0.15s, border-color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#fff"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(255,255,255,0.3)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#666"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(255,255,255,0.12)"; }}
+          >
+            SOSOVALUE ↗
+          </a>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             background: "transparent", border: "none", cursor: "pointer",
-            padding: "7px 14px", fontSize: 9, fontWeight: 900, letterSpacing: "0.12em",
+            padding: "8px 16px", fontSize: 9, fontWeight: 900, letterSpacing: "0.14em",
             color: tab === t.key ? "#D4FF00" : "#555",
             borderBottom: tab === t.key ? "2px solid #D4FF00" : "2px solid transparent",
             transition: "color 0.15s",
@@ -699,16 +723,16 @@ function SoSoValueIntelligence() {
       </div>
 
       {/* Content */}
-      <div style={{ padding: "0 14px", maxHeight: 320, overflowY: "auto" }}>
+      <div style={{ padding: "0 16px", maxHeight: 340, overflowY: "auto" }}>
         {isLoading && (
-          <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
             {[1,2,3].map(i => (
-              <div key={i} style={{ height: 48, background: "rgba(255,255,255,0.03)", borderRadius: 2 }} />
+              <div key={i} style={{ height: 52, background: "rgba(255,255,255,0.03)", borderRadius: 2 }} />
             ))}
           </div>
         )}
         {!isLoading && (!items || items.length === 0) && (
-          <div style={{ padding: "20px 0", textAlign: "center", fontSize: 11, color: "#444", fontWeight: 600, letterSpacing: "0.08em" }}>
+          <div style={{ padding: "24px 0", textAlign: "center", fontSize: 11, color: "#444", fontWeight: 700, letterSpacing: "0.1em" }}>
             NO DATA AVAILABLE
           </div>
         )}

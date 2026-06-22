@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useFeedStream } from "@/lib/sse";
 
 type MarketActivity = {
@@ -14,6 +15,17 @@ type MarketActivity = {
   buyRatio15m: number;
   netFlow15mUsd: number;
   lastFillTs: number;
+};
+
+type NewsItem = {
+  id: string;
+  title: string | null;
+  content: string;
+  url: string;
+  publishedAt: string;
+  authorDisplayName: string | null;
+  author: string;
+  matchedCoins: Array<{ symbol: string; name: string }>;
 };
 
 type MarketSummary = {
@@ -41,6 +53,94 @@ function fmtPrice(n: number) {
   if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (n >= 1) return n.toFixed(3);
   return n.toFixed(6);
+}
+
+function newsTimeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function SoSoValueNewsSidebar() {
+  const { data, isLoading } = useQuery<{ news: NewsItem[]; fetchedAt: string }>({
+    queryKey: ["markets-soso-news"],
+    queryFn: async () => {
+      const res = await fetch("/api/market/intelligence");
+      if (!res.ok) throw new Error("failed");
+      const d = await res.json();
+      return { news: d.news ?? [], fetchedAt: d.fetchedAt };
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    retry: 1,
+  });
+
+  return (
+    <div className="w-[280px] shrink-0 flex flex-col gap-0 border border-border/60" style={{ background: "rgba(212,255,0,0.015)" }}>
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/60" style={{ background: "rgba(212,255,0,0.03)" }}>
+        <div className="w-1.5 h-1.5 rounded-full bg-accent" style={{ boxShadow: "0 0 5px #D4FF00" }} />
+        <span className="text-[9px] font-black tracking-[0.16em] text-accent">SOSOVALUE</span>
+        <span className="text-[9px] font-black tracking-[0.14em] text-muted-foreground ml-1">INTEL</span>
+        <a
+          href="https://sosovalue.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto text-[8px] font-bold text-muted-foreground/50 hover:text-white transition-colors tracking-wider"
+        >↗</a>
+      </div>
+      <div className="flex-1 overflow-y-auto" style={{ maxHeight: 620 }}>
+        {isLoading && (
+          <div className="flex flex-col gap-2 p-4">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="h-12 bg-white/[0.03] rounded-sm" />
+            ))}
+          </div>
+        )}
+        {!isLoading && (!data?.news || data.news.length === 0) && (
+          <div className="p-4 text-center text-[10px] text-muted-foreground/40 font-bold tracking-wider">
+            NO NEWS
+          </div>
+        )}
+        {!isLoading && data?.news?.map(item => {
+          const label = item.title || item.content.slice(0, 100);
+          return (
+            <a
+              key={item.id}
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-4 py-3 border-b border-border/40 hover:bg-white/[0.03] transition-colors"
+              style={{ textDecoration: "none" }}
+            >
+              <div className="flex gap-2 items-start">
+                <span className="text-accent text-[8px] font-black mt-0.5 shrink-0">▸</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-white/80 font-medium leading-[1.45] m-0 line-clamp-3">{label}</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="text-[8px] text-muted-foreground/50 font-bold uppercase tracking-wider truncate max-w-[80px]">
+                      {item.authorDisplayName || item.author}
+                    </span>
+                    <span className="text-[8px] text-muted-foreground/30 font-mono">
+                      {newsTimeAgo(item.publishedAt)}
+                    </span>
+                    {item.matchedCoins.slice(0, 2).map(c => (
+                      <span key={c.symbol} className="text-[8px] font-bold text-accent/70 px-1 py-px" style={{ border: "1px solid rgba(212,255,0,0.2)", background: "rgba(212,255,0,0.05)" }}>
+                        ${c.symbol}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function Markets() {
@@ -95,12 +195,17 @@ export default function Markets() {
   });
 
   return (
-    <div className="px-8 pb-10 max-w-[1100px] w-full pt-8">
+    <div className="px-8 pb-10 pt-8 w-full max-w-[1400px]">
+      {/* Header */}
       <div className="flex items-end justify-between mb-5">
         <div>
           <h1 className="text-2xl font-black tracking-wide text-white">PERP MARKET ACTIVITY</h1>
-          <div className="text-muted-foreground text-[11px] font-bold tracking-wider mt-1">
-            LIVE FROM SODEX · 30S CACHE · {activity.length} MARKETS
+          <div className="text-muted-foreground text-[11px] font-bold tracking-wider mt-1 flex items-center gap-3">
+            <span>LIVE FROM SODEX · {activity.length} MARKETS</span>
+            <span className="text-border">·</span>
+            <a href="https://sodex.com" target="_blank" rel="noopener noreferrer"
+              className="text-accent/60 hover:text-accent transition-colors font-black tracking-widest text-[9px]"
+            >SODEX ↗</a>
           </div>
         </div>
         <div className="text-muted-foreground text-[10px] font-mono">
@@ -136,66 +241,74 @@ export default function Markets() {
         </div>
       )}
 
-      {/* Sort tabs */}
-      <div className="flex gap-2 mb-3">
-        {(["volume","change","fills","oi","flow"] as const).map(k => (
-          <button
-            key={k}
-            onClick={() => setSortBy(k)}
-            className={`px-3 py-1.5 text-[10px] font-extrabold tracking-wider border transition-colors ${
-              sortBy === k ? "border-accent text-accent bg-accent/10" : "border-border text-muted-foreground hover:text-white hover:border-white/40"
-            }`}
-          >
-            SORT: {k.toUpperCase()}
-          </button>
-        ))}
-      </div>
+      {/* Two-column: market table + SoSoValue news */}
+      <div className="flex gap-5 items-start">
+        <div className="flex-1 min-w-0">
+          {/* Sort tabs */}
+          <div className="flex gap-2 mb-3">
+            {(["volume","change","fills","oi","flow"] as const).map(k => (
+              <button
+                key={k}
+                onClick={() => setSortBy(k)}
+                className={`px-3 py-1.5 text-[10px] font-extrabold tracking-wider border transition-colors ${
+                  sortBy === k ? "border-accent text-accent bg-accent/10" : "border-border text-muted-foreground hover:text-white hover:border-white/40"
+                }`}
+              >
+                SORT: {k.toUpperCase()}
+              </button>
+            ))}
+          </div>
 
-      {/* Market table */}
-      <div className="border border-border bg-card">
-        <div className="grid grid-cols-[1.2fr_1fr_0.8fr_1fr_1fr_0.8fr_1fr_1fr] gap-2 px-4 py-3 border-b border-border text-[9px] font-extrabold tracking-widest text-muted-foreground">
-          <div>MARKET</div>
-          <div className="text-right">MARK PRICE</div>
-          <div className="text-right">24H</div>
-          <div className="text-right">VOLUME 24H</div>
-          <div className="text-right">OPEN INTEREST</div>
-          <div className="text-right">FUNDING</div>
-          <div className="text-right">15M FILLS · BUY %</div>
-          <div className="text-right">15M NET FLOW</div>
+          {/* Market table */}
+          <div className="border border-border bg-card">
+            <div className="grid grid-cols-[1.2fr_1fr_0.7fr_0.9fr_0.9fr_0.7fr_0.9fr_0.9fr] gap-2 px-4 py-3 border-b border-border text-[9px] font-extrabold tracking-widest text-muted-foreground">
+              <div>MARKET</div>
+              <div className="text-right">MARK PRICE</div>
+              <div className="text-right">24H</div>
+              <div className="text-right">VOLUME 24H</div>
+              <div className="text-right">OPEN INTEREST</div>
+              <div className="text-right">FUNDING</div>
+              <div className="text-right">15M FILLS · BUY %</div>
+              <div className="text-right">15M NET FLOW</div>
+            </div>
+            {loading && activity.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-xs tracking-wider font-bold">LOADING…</div>
+            ) : (
+              sorted.map(m => {
+                const up = m.changePct24h >= 0;
+                const buyDom = m.buyRatio15m >= 0.5;
+                const flowUp = m.netFlow15mUsd >= 0;
+                const fundPos = m.fundingRate >= 0;
+                return (
+                  <div key={m.symbol} className="grid grid-cols-[1.2fr_1fr_0.7fr_0.9fr_0.9fr_0.7fr_0.9fr_0.9fr] gap-2 px-4 py-3 border-b border-border/60 last:border-b-0 hover:bg-background/40 transition-colors items-center">
+                    <div className="font-black text-xs text-white tracking-wide">{m.displaySymbol}<span className="text-muted-foreground font-bold">-USD</span></div>
+                    <div className="text-right font-mono text-xs text-white">${fmtPrice(m.markPrice)}</div>
+                    <div className={`text-right font-mono text-xs font-bold ${up ? "text-accent" : "text-destructive"}`}>
+                      {up ? "+" : ""}{m.changePct24h.toFixed(2)}%
+                    </div>
+                    <div className="text-right font-mono text-xs text-white/90">{fmtUsd(m.volume24hUsd)}</div>
+                    <div className="text-right font-mono text-xs text-white/90">{fmtUsd(m.openInterestUsd)}</div>
+                    <div className={`text-right font-mono text-[11px] ${fundPos ? "text-accent/80" : "text-destructive/80"}`}>
+                      {(m.fundingRate * 100).toFixed(4)}%
+                    </div>
+                    <div className="text-right font-mono text-[11px]">
+                      <span className="text-white/70">{m.fillCount15m}</span>
+                      <span className={`ml-1.5 font-bold ${buyDom ? "text-accent" : "text-destructive"}`}>
+                        {(m.buyRatio15m * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className={`text-right font-mono text-xs font-bold ${flowUp ? "text-accent" : "text-destructive"}`}>
+                      {flowUp ? "+" : ""}{fmtUsd(m.netFlow15mUsd)}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
-        {loading && activity.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground text-xs tracking-wider font-bold">LOADING…</div>
-        ) : (
-          sorted.map(m => {
-            const up = m.changePct24h >= 0;
-            const buyDom = m.buyRatio15m >= 0.5;
-            const flowUp = m.netFlow15mUsd >= 0;
-            const fundPos = m.fundingRate >= 0;
-            return (
-              <div key={m.symbol} className="grid grid-cols-[1.2fr_1fr_0.8fr_1fr_1fr_0.8fr_1fr_1fr] gap-2 px-4 py-3 border-b border-border/60 last:border-b-0 hover:bg-background/40 transition-colors items-center">
-                <div className="font-black text-xs text-white tracking-wide">{m.displaySymbol}<span className="text-muted-foreground font-bold">-USD</span></div>
-                <div className="text-right font-mono text-xs text-white">${fmtPrice(m.markPrice)}</div>
-                <div className={`text-right font-mono text-xs font-bold ${up ? "text-accent" : "text-destructive"}`}>
-                  {up ? "+" : ""}{m.changePct24h.toFixed(2)}%
-                </div>
-                <div className="text-right font-mono text-xs text-white/90">{fmtUsd(m.volume24hUsd)}</div>
-                <div className="text-right font-mono text-xs text-white/90">{fmtUsd(m.openInterestUsd)}</div>
-                <div className={`text-right font-mono text-[11px] ${fundPos ? "text-accent/80" : "text-destructive/80"}`}>
-                  {(m.fundingRate * 100).toFixed(4)}%
-                </div>
-                <div className="text-right font-mono text-[11px]">
-                  <span className="text-white/70">{m.fillCount15m}</span>
-                  <span className={`ml-1.5 font-bold ${buyDom ? "text-accent" : "text-destructive"}`}>
-                    {(m.buyRatio15m * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className={`text-right font-mono text-xs font-bold ${flowUp ? "text-accent" : "text-destructive"}`}>
-                  {flowUp ? "+" : ""}{fmtUsd(m.netFlow15mUsd)}
-                </div>
-              </div>
-            );
-          })
-        )}
+
+        {/* SoSoValue news sidebar */}
+        <SoSoValueNewsSidebar />
       </div>
     </div>
   );

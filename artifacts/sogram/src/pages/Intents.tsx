@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useListIntents, useVoteIntent } from "@workspace/api-client-react";
 import type { TradeIntent } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
