@@ -1,0 +1,37 @@
+# Version control
+.git
+.gitignore
+
+# All node_modules (rebuilt in Docker)
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt in Docker)
+**/dist
+!artifacts/api-server/build.mjs
+
+# Replit-specific
+.replit
+replit.nix
+.local
+.agents
+attached_assets
+
+# Logs and runtime
+*.log
+**/*.log
+
+# Dev / editor
+.env
+.env.*
+*.local
+.vscode
+.idea
+
+# Test artifacts
+coverage
+.nyc_output
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
