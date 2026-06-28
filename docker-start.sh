@@ -7,7 +7,7 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "[startup] Running database migrations..."
-NODE_PATH=/app/api/node_modules node /app/migrate.mjs
+node /app/api/migrate.mjs
 
 echo "[startup] Starting Sogram API server on port $PORT..."
 node --enable-source-maps /app/api/dist/index.mjs &

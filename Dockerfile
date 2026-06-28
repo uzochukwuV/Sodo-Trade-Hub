@@ -73,8 +73,9 @@ COPY --from=builder /workspace/artifacts/api-server/dist ./api/dist
 # Default drizzle-kit output goes to lib/db/drizzle/
 COPY --from=builder /workspace/lib/db/drizzle /app/migrations
 
-# Migration runner (uses pg from api node_modules)
-COPY docker-migrate.mjs /app/migrate.mjs
+# Migration runner — must live inside /app/api/ so Node resolves 'pg'
+# from the sibling node_modules/ (ES module resolution ignores NODE_PATH)
+COPY docker-migrate.mjs /app/api/migrate.mjs
 
 # Frontend: Vite static output → nginx web root
 COPY --from=builder /workspace/artifacts/sogram/dist/public /usr/share/nginx/html
