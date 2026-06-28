@@ -1,56 +1,52 @@
 ########################################
-# Stage 1 — install all workspace deps
+# Stage 1 — install deps + build
 ########################################
-FROM node:24-slim AS deps
+FROM node:24-slim AS builder
 
-RUN npm install -g pnpm@latest --quiet
+# Build tools needed by native packages (@swc/core, unrs-resolver, esbuild)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       python3 make g++ pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm matching the version used in development
+RUN npm install -g pnpm@10 --quiet
 
 WORKDIR /workspace
 
-# Copy manifests first for layer-cache efficiency
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-
-# Lib packages
-COPY lib/db/package.json                 ./lib/db/
-COPY lib/api-spec/package.json           ./lib/api-spec/
-COPY lib/api-zod/package.json            ./lib/api-zod/
-COPY lib/api-client-react/package.json   ./lib/api-client-react/
-
-# Artifact packages
-COPY artifacts/api-server/package.json   ./artifacts/api-server/
-COPY artifacts/sogram/package.json       ./artifacts/sogram/
-
-# Scripts package (needed for workspace graph)
-COPY scripts/package.json                ./scripts/
-
-RUN pnpm install --frozen-lockfile
-
-
-########################################
-# Stage 2 — build everything
-########################################
-FROM deps AS builder
-
-# Copy full source
+# Copy the FULL workspace upfront.
+# Copying package.json files piecemeal is fragile with pnpm workspaces because
+# pnpm needs the complete workspace graph at install time.
 COPY . .
 
-# Build the API server (esbuild → artifacts/api-server/dist/)
+# Install all deps.
+# --no-frozen-lockfile: the lockfile was generated on NixOS/Replit; platform
+#   overrides make it strict-fail on standard Debian Linux in Docker.
+# --ignore-scripts: skip post-install scripts for packages we don't need them
+#   for (they run fine when we build explicitly below).
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
+
+# Re-run prepare scripts only for packages that actually need it (esbuild binary)
+RUN pnpm rebuild esbuild --no-bail 2>/dev/null || true
+
+# ── Build API server (esbuild → artifacts/api-server/dist/) ─────────────────
 RUN NODE_ENV=production \
     pnpm --filter @workspace/api-server run build
 
-# Build the frontend (Vite → artifacts/sogram/dist/public/)
-# PORT and BASE_PATH are consumed by vite.config.ts at build time only
+# ── Build frontend (Vite → artifacts/sogram/dist/public/) ───────────────────
+# PORT and BASE_PATH are only consumed by vite.config.ts at build time, not runtime.
+# REPL_ID must be unset so Replit-specific plugins are skipped.
 RUN PORT=80 BASE_PATH=/ NODE_ENV=production \
     pnpm --filter @workspace/sogram run build
 
-# Produce a standalone deploy directory for the api-server:
-# - resolves all production deps (including @langchain/*) without pnpm symlinks
-# - safe to copy into the final image as-is
+# ── Produce a standalone deploy for the API ──────────────────────────────────
+# pnpm deploy copies all production node_modules (no symlinks) so the runner
+# stage doesn't need pnpm or the full workspace.
 RUN pnpm --filter @workspace/api-server deploy --prod /deploy
 
 
 ########################################
-# Stage 3 — lean production image
+# Stage 2 — lean production runner
 ########################################
 FROM node:24-slim AS runner
 
@@ -61,16 +57,16 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# API: standalone node_modules from pnpm deploy
+# API: standalone node_modules (no pnpm, no symlinks)
 COPY --from=builder /deploy ./api
 
-# API: esbuild output (the actual runnable code + pino workers)
+# API: esbuild output — dist/index.mjs + pino worker bundles
 COPY --from=builder /workspace/artifacts/api-server/dist ./api/dist
 
 # Frontend: Vite static output → nginx web root
 COPY --from=builder /workspace/artifacts/sogram/dist/public /usr/share/nginx/html
 
-# Config files
+# Config files baked into the image
 COPY nginx.conf      /etc/nginx/nginx.conf
 COPY docker-start.sh /app/start.sh
 RUN chmod +x /app/start.sh
@@ -78,7 +74,7 @@ RUN chmod +x /app/start.sh
 EXPOSE 80
 
 ENV NODE_ENV=production
-# API server always runs on 9000 internally; nginx proxies to it
+# API always runs on 9000 internally; nginx proxies to it
 ENV PORT=9000
 
 CMD ["/app/start.sh"]
