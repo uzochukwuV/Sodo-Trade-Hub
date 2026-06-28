@@ -42,7 +42,7 @@ RUN PORT=80 BASE_PATH=/ NODE_ENV=production \
 # ── Produce a standalone deploy for the API ──────────────────────────────────
 # pnpm deploy copies all production node_modules (no symlinks) so the runner
 # stage doesn't need pnpm or the full workspace.
-RUN pnpm --filter @workspace/api-server deploy --prod /deploy
+RUN pnpm --filter @workspace/api-server deploy --prod --legacy /deploy
 
 
 ########################################
