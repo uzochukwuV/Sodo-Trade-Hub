@@ -4,6 +4,7 @@ import type { SodexPosition } from "./leaderboard-tracker";
 import { notifyTraderClosedPosition, notifyTraderOpenedPosition, notifyIntentAlignment } from "./alerts";
 import { emitNewTrade, emitNewSignal } from "./event-bus";
 import { getSymbolMeta } from "./sodex-rest";
+import { recordWalletIntelligence } from "./wallet-intel";
 
 function uiSymbol(sodexSymbol: string): string {
   return sodexSymbol.replace("-USD", "/USDT");
@@ -74,6 +75,7 @@ export async function ingestPosition(trader: TraderForIngest, p: SodexPosition):
         tradeId, traderId: trader.id, username: trader.username, asset: symbol, side,
         pnlUsd: pnl, leverage: p.leverage, ts: Date.now(),
       });
+      await recordWalletIntelligence(trader, p);
       return { kind: "trade" };
     }
 
@@ -113,6 +115,7 @@ export async function ingestPosition(trader: TraderForIngest, p: SodexPosition):
         signalId, traderId: trader.id, username: trader.username, asset: symbol, side,
         entryPrice: entry, leverage: p.leverage, ts: Date.now(),
       });
+      await recordWalletIntelligence(trader, p);
       return { kind: "signal" };
     }
   } catch (err) {

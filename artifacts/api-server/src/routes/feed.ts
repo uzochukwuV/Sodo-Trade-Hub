@@ -1,9 +1,96 @@
 import { Router, type IRouter } from "express";
 import { db, tradersTable, tradesTable, signalsTable, painRoomsTable } from "@workspace/db";
-import { eq, desc, and, lt } from "drizzle-orm";
+import { eq, desc, and, lt, isNotNull, sql } from "drizzle-orm";
 import { nonEliteTraderSqlPredicate } from "../services/trader-classification";
+import { getLiveHighImpactTrades } from "../services/live-sodex-intel";
 
 const router: IRouter = Router();
+
+async function getStoredHighImpactTrades(opts: {
+  limit: number;
+  minProfitUsd: number;
+  minLossUsd: number;
+}) {
+  try {
+    const rows = await db.select().from(tradesTable)
+      .where(and(
+        isNotNull(tradesTable.walletAddress),
+        sql`(${tradesTable.pnlUsd}::numeric >= ${opts.minProfitUsd} or ${tradesTable.pnlUsd}::numeric <= ${-opts.minLossUsd})`,
+      ))
+      .orderBy(desc(tradesTable.closedAt))
+      .limit(opts.limit);
+
+    return rows.map(trade => {
+      const pnlUsd = Number(trade.pnlUsd);
+      const notionalUsd = Number(trade.positionSize);
+      return {
+        id: String(trade.id),
+        walletAddress: trade.walletAddress ?? "",
+        accountId: trade.accountId ?? 0,
+        rank: trade.leaderboardRank ?? 0,
+        windowType: trade.leaderboardWindow ?? "7D",
+        leaderboardPnlUsd: 0,
+        symbol: trade.asset,
+        side: trade.side,
+        leverage: trade.leverage,
+        pnlUsd,
+        pnlPct: Number(trade.pnlPct),
+        notionalUsd,
+        entryPrice: Number(trade.entryPrice),
+        exitPrice: Number(trade.exitPrice),
+        openedAt: trade.openedAt ? trade.openedAt.toISOString() : null,
+        closedAt: trade.closedAt.toISOString(),
+        sodexPositionId: trade.sodexTradeId ?? String(trade.id),
+        impact: pnlUsd >= 0 ? "profit" : "loss",
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
+router.get("/feed/high-impact", async (req, res) => {
+  try {
+    const window = String(req.query.window ?? "7D");
+    if (!["24H", "7D", "30D", "ALL_TIME"].includes(window)) {
+      res.status(400).json({ error: "Invalid window" });
+      return;
+    }
+
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 30), 1), 100);
+    const minProfitUsd = Math.max(Number(req.query.minProfitUsd ?? 500), 0);
+    const minLossUsd = Math.max(Number(req.query.minLossUsd ?? 500), 0);
+    const stored = await getStoredHighImpactTrades({ limit, minProfitUsd, minLossUsd });
+
+    if (stored && stored.length > 0) {
+      res.json({
+        items: stored,
+        total: stored.length,
+        scannedWallets: 0,
+        thresholds: { minProfitUsd, minLossUsd },
+        window,
+        source: "stored",
+      });
+      return;
+    }
+
+    const result = await getLiveHighImpactTrades({
+      window: window as "24H" | "7D" | "30D" | "ALL_TIME",
+      leaderboardSize: Number(req.query.leaderboardSize ?? 20),
+      limit,
+      minProfitUsd,
+      minLossUsd,
+      positionLimit: Number(req.query.positionLimit ?? 100),
+    });
+
+    res.json({ ...result, source: "live" });
+  } catch (err) {
+    res.status(502).json({
+      error: "Failed to fetch live SoDEX high-impact trades",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
 
 function formatTimeAgo(ms: number) {
   const m = Math.floor(ms / 60000);

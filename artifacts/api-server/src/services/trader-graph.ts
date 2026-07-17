@@ -1,5 +1,5 @@
 import { db, tradesTable, tradersTable } from "@workspace/db";
-import { eq, sql, and, gte, ne, inArray } from "drizzle-orm";
+import { eq, sql, and, gte, ne, inArray, isNotNull } from "drizzle-orm";
 
 /**
  * Trader Graph — derived from the `trades` table (which carries openedAt + sodexTradeId
@@ -33,8 +33,8 @@ async function loadRecentTrades(sinceMs: number): Promise<TradeRow[]> {
       closedAt: tradesTable.closedAt,
     })
     .from(tradesTable)
-    .where(gte(tradesTable.closedAt, since));
-  return rows;
+    .where(and(gte(tradesTable.closedAt, since), isNotNull(tradesTable.traderId)));
+  return rows as TradeRow[];
 }
 
 /** Effective open time — fall back to closedAt for legacy rows missing openedAt. */

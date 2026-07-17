@@ -5,7 +5,11 @@ export const tradeSideEnum = pgEnum("trade_side", ["LONG", "SHORT"]);
 
 export const tradesTable = pgTable("trades", {
   id: serial("id").primaryKey(),
-  traderId: integer("trader_id").notNull().references(() => tradersTable.id),
+  traderId: integer("trader_id").references(() => tradersTable.id),
+  walletAddress: text("wallet_address"),
+  accountId: integer("account_id"),
+  leaderboardRank: integer("leaderboard_rank"),
+  leaderboardWindow: text("leaderboard_window"),
   asset: text("asset").notNull(),
   side: tradeSideEnum("side").notNull(),
   entryPrice: numeric("entry_price", { precision: 18, scale: 8 }).notNull(),
@@ -29,6 +33,7 @@ export const tradesTable = pgTable("trades", {
   // Prevents duplicate-trade re-inserts if the poller crashes mid-loop or if the
   // backfill overlaps with the first scheduled poll. Per (traderId, sodexTradeId).
   sodexTradeUq: uniqueIndex("trades_trader_sodex_uq").on(t.traderId, t.sodexTradeId),
+  walletSodexTradeUq: uniqueIndex("trades_wallet_sodex_uq").on(t.walletAddress, t.sodexTradeId),
 }));
 
 export type Trade = typeof tradesTable.$inferSelect;
