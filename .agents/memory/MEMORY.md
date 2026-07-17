@@ -4,3 +4,5 @@
 - [Nested anchor bug pattern](nested-anchor-pattern.md) — wrapping cards in <Link> (renders <a>) while inner WalletBadge also has <a> tags causes React hydration error; use div+role="link"+navigate instead
 - [LangChain esbuild externals](langchain-esbuild.md) — LangChain v1.4.4 has minimal exports; add langchain/*, @langchain/* to build.mjs externals; avoid langchain/agents (not exported); implement tool loop manually with @langchain/core/tools + @langchain/core/messages/tool
 - [React pagination pattern](react-pagination-pattern.md) — use useEffect (not render-body state mutations) for syncing fetched data into accumulated lists; never call setState directly in render
+- [SoDEX testnet signing and transfer](sodex-testnet-signing-transfer.md) — PRIVATE_KEY wallet has accountID 59798; API key header must use name `default`; normalize ECDSA v 27/28 to 0/1; spot-to-perps vUSDC transfer is spot-domain `transferAsset` with `toAccountID=999`, `coinID=0`, `type=3`
+- [SoDEX Guardian signed execution test](sodex-guardian-signed-execution.md) — BTC-USD testnet long opened and protected with a signed reduce-only stop-loss; stop-market needs `timeInForce=IOC`, not `GTC`

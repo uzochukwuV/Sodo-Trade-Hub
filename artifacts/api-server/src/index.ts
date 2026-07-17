@@ -1,8 +1,5 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startSignalResolver } from "./scripts/signal-resolver";
-import { startTrackerPoller } from "./services/leaderboard-tracker";
-import { startSignalPoller } from "./services/signal-poller";
 import { getSodexWs } from "./services/sodex-ws";
 import { loadSymbolMeta } from "./services/sodex-rest";
 import {
@@ -12,9 +9,9 @@ import {
   startMarketRefresh,
   knownSymbols,
 } from "./services/market-activity";
-import { bootstrapWalletSubs } from "./services/wallet-subs";
-import { startAiAgent } from "./services/ai-agent";
 import { startTelegramBot } from "./services/telegram";
+import { startHighImpactTradeIndexer } from "./services/high-impact-trade-indexer";
+import { bootstrapWatchlistWalletSubs } from "./services/wallet-subs";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +22,7 @@ if (!rawPort) {
 }
 
 const port = Number(rawPort);
+const enableIndexers = process.env["ENABLE_INDEXERS"] !== "0";
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
@@ -52,11 +50,12 @@ app.listen(port, (err) => {
     .then(() => startSymbolFillSubscriptions(knownSymbols()))
     .catch(err => logger.warn({ err }, "market warmup failed"));
   startMarketRefresh(60_000);
-  bootstrapWalletSubs().catch(err => logger.warn({ err }, "wallet subs bootstrap failed"));
+  if (enableIndexers) {
+    startHighImpactTradeIndexer(60_000);
+    bootstrapWatchlistWalletSubs().catch(err => logger.warn({ err }, "watchlist wallet subs bootstrap failed"));
+  } else {
+    logger.info("high-impact trade indexer disabled; using live SoDEX leaderboard analysis");
+  }
 
-  startSignalResolver(60_000);
-  startTrackerPoller(30 * 60_000);    // leaderboard refresh every 30 min; auto-boots on empty DB
-  startSignalPoller(5 * 60_000);      // 5-min REST safety net (WS is primary)
-  startAiAgent(15 * 60_000);          // AI agent: post intents + signals every 15 min
   startTelegramBot();                  // Telegram alerts for notable trades (DIAMOND/GOLD tier)
 });

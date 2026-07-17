@@ -1,7 +1,8 @@
-import { db, tradersTable, tradesTable, indexerStateTable } from "@workspace/db";
+import { db, tradersTable, tradesTable, indexerStateTable, leaderboardSnapshotsTable, walletProfilesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { subscribeWallet } from "./wallet-subs";
+import { refreshWalletIntelligenceForTrader } from "./wallet-intel";
 
 const SODEX_TO_UI: Record<string, string> = {
   "BTC-USD": "BTC/USDT", "ETH-USD": "ETH/USDT", "SOL-USD": "SOL/USDT",
@@ -90,6 +91,10 @@ export type SodexPosition = {
   updatedAt: number;
 };
 
+export type SodexOrder = Record<string, unknown>;
+export type SodexUserTrade = Record<string, unknown>;
+export type SodexFunding = Record<string, unknown>;
+
 export async function fetchLeaderboard(window: "24H" | "7D" | "30D" | "ALL_TIME", pageSize = 50): Promise<LeaderboardItem[]> {
   const url = `${LB_BASE}/leaderboard?window_type=${window}&sort_by=pnl&sort_order=desc&page=1&page_size=${pageSize}`;
   const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15_000) });
@@ -98,12 +103,80 @@ export async function fetchLeaderboard(window: "24H" | "7D" | "30D" | "ALL_TIME"
   return json.data.items;
 }
 
-export async function fetchPositions(walletAddress: string, limit = 100): Promise<SodexPosition[]> {
-  const url = `${GW_BASE}/perps/accounts/${walletAddress}/positions/history?limit=${limit}`;
+function accountHistoryUrl(walletAddress: string, path: "positions/history" | "orders/history" | "trades" | "fundings", opts: {
+  accountId?: string | number | null;
+  symbol?: string | null;
+  orderId?: string | number | null;
+  positionId?: string | number | null;
+  startTime?: string | number | null;
+  endTime?: string | number | null;
+  limit?: number;
+} = {}) {
+  const url = new URL(`${GW_BASE}/perps/accounts/${walletAddress}/${path}`);
+  if (opts.accountId !== undefined && opts.accountId !== null && String(opts.accountId).trim()) {
+    url.searchParams.set("accountID", String(opts.accountId));
+  }
+  if (opts.symbol) url.searchParams.set("symbol", String(opts.symbol));
+  if (opts.orderId) url.searchParams.set("orderID", String(opts.orderId));
+  if (opts.positionId) url.searchParams.set("positionID", String(opts.positionId));
+  if (opts.startTime) url.searchParams.set("startTime", String(opts.startTime));
+  if (opts.endTime) url.searchParams.set("endTime", String(opts.endTime));
+  if (opts.limit) url.searchParams.set("limit", String(opts.limit));
+  return url.toString();
+}
+
+async function fetchAccountHistory<T>(walletAddress: string, path: "positions/history" | "orders/history" | "trades" | "fundings", opts: {
+  accountId?: string | number | null;
+  symbol?: string | null;
+  orderId?: string | number | null;
+  positionId?: string | number | null;
+  startTime?: string | number | null;
+  endTime?: string | number | null;
+  limit?: number;
+} = {}, label: string = path): Promise<T[]> {
+  const url = accountHistoryUrl(walletAddress, path, opts);
   const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15_000) });
-  const json = await res.json() as { code: number; data?: SodexPosition[]; message?: string };
-  if (json.code !== 0) throw new Error(`positions fetch failed: ${json.message ?? json.code}`);
+  const json = await res.json() as { code: number; data?: T[]; message?: string };
+  if (json.code !== 0) throw new Error(`${label} fetch failed: ${json.message ?? json.code}`);
   return json.data ?? [];
+}
+
+export async function fetchPositions(walletAddress: string, limit = 100, opts: {
+  accountId?: string | number | null;
+  symbol?: string | null;
+  startTime?: string | number | null;
+  endTime?: string | number | null;
+} = {}): Promise<SodexPosition[]> {
+  return fetchAccountHistory<SodexPosition>(walletAddress, "positions/history", { ...opts, limit }, "positions");
+}
+
+export async function fetchOrders(walletAddress: string, limit = 100, opts: {
+  accountId?: string | number | null;
+  symbol?: string | null;
+  startTime?: string | number | null;
+  endTime?: string | number | null;
+} = {}): Promise<SodexOrder[]> {
+  return fetchAccountHistory<SodexOrder>(walletAddress, "orders/history", { ...opts, limit }, "orders");
+}
+
+export async function fetchAccountTrades(walletAddress: string, limit = 100, opts: {
+  accountId?: string | number | null;
+  symbol?: string | null;
+  orderId?: string | number | null;
+  startTime?: string | number | null;
+  endTime?: string | number | null;
+} = {}): Promise<SodexUserTrade[]> {
+  return fetchAccountHistory<SodexUserTrade>(walletAddress, "trades", { ...opts, limit }, "trades");
+}
+
+export async function fetchFundings(walletAddress: string, limit = 100, opts: {
+  accountId?: string | number | null;
+  symbol?: string | null;
+  positionId?: string | number | null;
+  startTime?: string | number | null;
+  endTime?: string | number | null;
+} = {}): Promise<SodexFunding[]> {
+  return fetchAccountHistory<SodexFunding>(walletAddress, "fundings", { ...opts, limit }, "fundings");
 }
 
 export type TraderMetrics = {
@@ -135,6 +208,21 @@ export function computeMetrics(positions: SodexPosition[]): TraderMetrics {
     lastSeen,
     symbolsTraded: new Set(positions.map(p => p.symbol)).size,
   };
+}
+
+async function recordLeaderboardSnapshot(item: LeaderboardItem, wallet: string, window: LeaderboardItem["window_type"]) {
+  const profile = await db.query.walletProfilesTable.findFirst({ where: eq(walletProfilesTable.walletAddress, wallet) });
+  await db.insert(leaderboardSnapshotsTable).values({
+    walletProfileId: profile?.id ?? null,
+    walletAddress: wallet,
+    windowType: window,
+    sortBy: "pnl",
+    rank: item.rank,
+    pnlUsd: item.pnl_usd,
+    volumeUsd: item.volume_usd,
+    accountId: item.account_id,
+    raw: item as unknown as Record<string, unknown>,
+  });
 }
 
 async function getOrCreateState() {
@@ -193,7 +281,7 @@ export async function runTrackerOnce(opts: { window?: "24H" | "7D" | "30D" | "AL
 
       let positions: SodexPosition[];
       try {
-        positions = await fetchPositions(wallet, 100);
+        positions = await fetchPositions(wallet, 100, { accountId: item.account_id });
       } catch (err) {
         logger.warn({ event: "tracker.positions_fail", wallet, err: String(err) }, "positions fetch failed");
         continue;
@@ -241,6 +329,8 @@ export async function runTrackerOnce(opts: { window?: "24H" | "7D" | "30D" | "AL
             lastSyncedPositionId: String(highWaterMark),
             lastSyncedAt: new Date(),
           }).where(eq(tradersTable.id, existing.id));
+          await refreshWalletIntelligenceForTrader({ id: existing.id, username: existing.username, walletAddress: wallet }, positions);
+          await recordLeaderboardSnapshot(item, wallet, window);
           result.imported++;
           logger.info({ event: "tracker.updated", wallet, username, pnl: metrics.totalPnlUsd, winRate: metrics.winRate, rank: item.rank }, "trader updated");
         } else {
@@ -266,6 +356,8 @@ export async function runTrackerOnce(opts: { window?: "24H" | "7D" | "30D" | "AL
             lastSyncedPositionId: String(highWaterMark),
             lastSyncedAt: new Date(),
           }).returning();
+          await refreshWalletIntelligenceForTrader({ id: inserted.id, username: inserted.username, walletAddress: wallet }, positions);
+          await recordLeaderboardSnapshot(item, wallet, window);
           result.imported++;
 
           // Backfill the trader's most recent closed positions as feed posts so the
@@ -312,7 +404,7 @@ export async function runTrackerOnce(opts: { window?: "24H" | "7D" | "30D" | "AL
           subscribeWallet(inserted.id, wallet, username);
         }
       } catch (err) {
-        logger.warn({ event: "tracker.insert_fail", wallet, err: String(err) }, "trader insert/update failed");
+        logger.warn({ event: "tracker.insert_fail", wallet, err }, "trader insert/update failed");
       }
     }
 

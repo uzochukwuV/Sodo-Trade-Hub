@@ -1,6 +1,7 @@
 import { db, alertsTable, followsTable, usersTable, tradeIntentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { evaluateAlertEvent } from "./alert-engine";
 
 type AlertType = "trader_open" | "trader_close" | "new_comment" | "intent_voted" | "intent_resolved" | "intent_alignment" | "graph_signal";
 
@@ -48,6 +49,20 @@ export async function notifyTraderOpenedPosition(traderId: number, info: { usern
   for (const uid of userIds) {
     await pushAlert(uid, "trader_open", `${info.username} opened ${info.side} ${info.asset}`, `${info.leverage}x · entry $${info.entryPrice.toFixed(4)}`, info);
   }
+  await evaluateAlertEvent({
+    eventType: "open_position",
+    subjectType: "wallet",
+    subjectId: info.sodexPositionId,
+    walletAddress: info.walletAddress ?? "",
+    traderId,
+    username: info.username,
+    asset: info.asset,
+    side: info.side as "LONG" | "SHORT",
+    leverage: info.leverage,
+    title: `${info.username} opened ${info.side} ${info.asset}`,
+    body: `${info.leverage}x · entry $${info.entryPrice.toFixed(4)}`,
+    payload: info,
+  });
 }
 
 export async function notifyTraderClosedPosition(traderId: number, info: { username: string; asset: string; side: string; pnlUsd: number; sodexTradeId: string; walletAddress: string | null }) {
@@ -56,6 +71,21 @@ export async function notifyTraderClosedPosition(traderId: number, info: { usern
     const verb = info.pnlUsd >= 0 ? "WIN" : "LOSS";
     await pushAlert(uid, "trader_close", `${info.username} closed ${info.asset} · ${verb}`, `${info.side} · ${info.pnlUsd >= 0 ? "+" : ""}$${info.pnlUsd.toFixed(0)}`, info);
   }
+  await evaluateAlertEvent({
+    eventType: info.pnlUsd >= 50_000 ? "big_pnl" : "close_position",
+    subjectType: "wallet",
+    subjectId: info.sodexTradeId,
+    walletAddress: info.walletAddress ?? "",
+    traderId,
+    username: info.username,
+    asset: info.asset,
+    side: info.side as "LONG" | "SHORT",
+    pnlUsd: info.pnlUsd,
+    notionalUsd: Math.abs(info.pnlUsd) * 10,
+    title: `${info.username} closed ${info.asset} · ${info.pnlUsd >= 0 ? "WIN" : "LOSS"}`,
+    body: `${info.side} · ${info.pnlUsd >= 0 ? "+" : ""}$${info.pnlUsd.toFixed(0)}`,
+    payload: info,
+  });
 }
 
 /**

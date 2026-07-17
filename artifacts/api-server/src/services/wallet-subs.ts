@@ -1,11 +1,15 @@
-import { db, tradersTable } from "@workspace/db";
+import { db, tradersTable, watchlistItemsTable } from "@workspace/db";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { logger } from "./../lib/logger";
 import { getSodexWs } from "./sodex-ws";
 import { ingestPosition } from "./position-ingest";
 import { fetchPositions, type SodexPosition } from "./leaderboard-tracker";
+import { evaluateAlertEvent } from "./alert-engine";
 
-const _registered = new Set<string>();
+const _registeredTraderWallets = new Set<string>();
+const _registeredWatchlistWallets = new Set<string>();
+const _alertDedupe = new Map<string, number>();
+const ALERT_DEDUPE_MS = 10 * 60_000;
 
 /** Map a raw account WS frame to a SodexPosition; null if dedup fields are missing. */
 function payloadToPosition(m: Record<string, unknown>): SodexPosition | null {
@@ -60,6 +64,89 @@ function payloadToPosition(m: Record<string, unknown>): SodexPosition | null {
   };
 }
 
+function payloadToOpenOrder(m: Record<string, unknown>) {
+  const inner: Record<string, unknown> =
+    (m["o"] && typeof m["o"] === "object" ? m["o"] as Record<string, unknown> : undefined) ??
+    (m["data"] && typeof m["data"] === "object" ? m["data"] as Record<string, unknown> : undefined) ??
+    m;
+
+  const symbol = (inner["s"] ?? inner["symbol"]) as string | undefined;
+  const rawStatus = String(inner["X"] ?? inner["status"] ?? inner["orderStatus"] ?? "").toUpperCase();
+  const rawType = String(inner["o"] ?? inner["type"] ?? inner["orderType"] ?? "").toUpperCase();
+  const orderId = inner["i"] ?? inner["orderID"] ?? inner["orderId"] ?? inner["id"] ?? inner["clientOrderId"] ?? inner["clOrdID"];
+  if (!symbol || orderId === undefined || orderId === null) return null;
+
+  const isOpenPlacement = ["NEW", "PARTIALLY_FILLED", "OPEN"].includes(rawStatus)
+    || (!rawStatus && ["LIMIT", "MARKET", "STOP", "STOP_MARKET"].includes(rawType));
+  if (!isOpenPlacement) return null;
+
+  const rawSide = String(inner["S"] ?? inner["side"] ?? "").toUpperCase();
+  const rawPositionSide = String(inner["ps"] ?? inner["positionSide"] ?? rawSide).toUpperCase();
+  const side: "LONG" | "SHORT" = rawPositionSide === "SHORT" || rawSide === "SELL" ? "SHORT" : "LONG";
+  const price = Number(inner["p"] ?? inner["price"] ?? inner["avgPrice"] ?? 0);
+  const quantity = Number(inner["q"] ?? inner["origQty"] ?? inner["quantity"] ?? inner["executedQty"] ?? 0);
+  const leverage = Number(inner["l"] ?? inner["leverage"] ?? 0);
+  const notionalUsd = price > 0 && quantity > 0 ? price * quantity : undefined;
+
+  return {
+    orderId: String(orderId),
+    symbol: symbol.replace("-USD", "/USDT"),
+    side,
+    price: Number.isFinite(price) ? price : undefined,
+    quantity: Number.isFinite(quantity) ? quantity : undefined,
+    leverage: Number.isFinite(leverage) && leverage > 0 ? leverage : undefined,
+    notionalUsd,
+    status: rawStatus || "OPEN",
+    orderType: rawType || "ORDER",
+    raw: inner,
+  };
+}
+
+function shouldSendAlert(key: string) {
+  const now = Date.now();
+  for (const [k, expiresAt] of _alertDedupe) {
+    if (expiresAt <= now) _alertDedupe.delete(k);
+  }
+  const existing = _alertDedupe.get(key);
+  if (existing && existing > now) return false;
+  _alertDedupe.set(key, now + ALERT_DEDUPE_MS);
+  return true;
+}
+
+async function emitWatchedWalletOpenAlert(walletAddress: string, event: ReturnType<typeof payloadToOpenOrder>) {
+  if (!event) return;
+  const dedupeKey = `${walletAddress}:open_order:${event.orderId}`;
+  if (!shouldSendAlert(dedupeKey)) return;
+
+  await evaluateAlertEvent({
+    eventType: "open_position",
+    subjectType: "wallet",
+    subjectId: `${walletAddress}:${event.orderId}`,
+    walletAddress,
+    asset: event.symbol,
+    side: event.side,
+    leverage: event.leverage,
+    notionalUsd: event.notionalUsd,
+    title: `Watchlist wallet opened ${event.side} ${event.symbol}`,
+    body: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} placed a ${event.orderType} ${event.side} order on ${event.symbol}${event.price ? ` near ${event.price}` : ""}.`,
+    payload: {
+      source: "sodex_ws",
+      kind: "open_order",
+      walletAddress,
+      orderId: event.orderId,
+      symbol: event.symbol,
+      side: event.side,
+      price: event.price,
+      quantity: event.quantity,
+      leverage: event.leverage,
+      notionalUsd: event.notionalUsd,
+      status: event.status,
+      orderType: event.orderType,
+      raw: event.raw,
+    },
+  });
+}
+
 /**
  * Bounded REST recovery: only triggered after PARSE_FAIL_THRESHOLD consecutive
  * parse failures for the same wallet, and at most once per RECOVERY_COOLDOWN_MS.
@@ -92,8 +179,8 @@ async function recoverFromRest(traderId: number, walletAddress: string, username
 /** Register WS subscriptions for one wallet. Idempotent — re-call safely. */
 export function subscribeWallet(traderId: number, walletAddress: string, username: string) {
   const key = walletAddress.toLowerCase();
-  if (_registered.has(key)) return;
-  _registered.add(key);
+  if (_registeredTraderWallets.has(key)) return;
+  _registeredTraderWallets.add(key);
   const ws = getSodexWs();
   const trader = { id: traderId, username, walletAddress: key };
 
@@ -123,6 +210,52 @@ export function subscribeWallet(traderId: number, walletAddress: string, usernam
   logger.info({ event: "wallet_subs.registered", username, wallet: key }, "ws account subs registered");
 }
 
+/** Register WS subscriptions for a watchlist wallet. Does not require trader/profile rows. */
+export function subscribeWatchedWallet(walletAddress: string) {
+  const key = walletAddress.toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(key)) return;
+  if (_registeredWatchlistWallets.has(key)) return;
+  _registeredWatchlistWallets.add(key);
+  const ws = getSodexWs();
+
+  const handle = (data: unknown) => {
+    if (!data || typeof data !== "object") return;
+    const m = data as Record<string, unknown>;
+    const order = payloadToOpenOrder(m);
+    if (order) {
+      _parseFails.set(key, 0);
+      emitWatchedWalletOpenAlert(key, order).catch(err =>
+        logger.warn({ event: "watchlist_ws.alert_fail", wallet: key, err: String(err) }, "watched wallet alert failed"),
+      );
+      return;
+    }
+
+    const pos = payloadToPosition(m);
+    if (pos?.active) {
+      _parseFails.set(key, 0);
+      emitWatchedWalletOpenAlert(key, {
+        orderId: String(pos.id),
+        symbol: pos.symbol.replace("-USD", "/USDT"),
+        side: pos.positionSide,
+        price: Number(pos.avgEntryPrice || 0),
+        quantity: Number(pos.size || 0),
+        leverage: pos.leverage,
+        notionalUsd: Number(pos.avgEntryPrice || 0) * Number(pos.size || 0),
+        status: "OPEN",
+        orderType: "POSITION",
+        raw: pos as unknown as Record<string, unknown>,
+      }).catch(err =>
+        logger.warn({ event: "watchlist_ws.position_alert_fail", wallet: key, err: String(err) }, "watched wallet position alert failed"),
+      );
+      return;
+    }
+  };
+
+  ws.subscribe(`accountUpdate@${key}`, handle);
+  ws.subscribe(`accountTrade@${key}`, handle);
+  logger.info({ event: "watchlist_ws.registered", wallet: key }, "watchlist ws account subs registered");
+}
+
 /** Subscribe to every already-imported tracked wallet. Called once at boot. */
 export async function bootstrapWalletSubs(): Promise<number> {
   const traders = await db.select({
@@ -135,4 +268,23 @@ export async function bootstrapWalletSubs(): Promise<number> {
   }
   logger.info({ event: "wallet_subs.bootstrap", count: traders.length }, "wallet subs bootstrapped");
   return traders.length;
+}
+
+/** Subscribe to every raw wallet currently saved in user watchlists. */
+export async function bootstrapWatchlistWalletSubs(): Promise<number> {
+  const rows = await db.select({
+    walletAddress: watchlistItemsTable.walletAddress,
+  })
+    .from(watchlistItemsTable)
+    .where(isNotNull(watchlistItemsTable.walletAddress))
+    .groupBy(watchlistItemsTable.walletAddress);
+
+  let count = 0;
+  for (const row of rows) {
+    if (!row.walletAddress) continue;
+    subscribeWatchedWallet(row.walletAddress);
+    count++;
+  }
+  logger.info({ event: "watchlist_ws.bootstrap", count }, "watchlist wallet subs bootstrapped");
+  return count;
 }

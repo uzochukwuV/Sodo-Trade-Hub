@@ -1,0 +1,30 @@
+[project]
+name = "sodex-trade-guardian"
+version = "0.1.0"
+description = "Non-custodial AI trade automation engine for SoDEX perps: sub-account management, EIP-712 signed execution, batched agentic decisioning, and consistency-safe automations."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "eth-account>=0.13",
+    "eth-utils>=4.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "redis>=5.0",
+    "tenacity>=8.3",
+    "anthropic>=0.34",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-dotenv>=1.0",
+    "structlog>=24.1",
+    "cryptography>=42.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

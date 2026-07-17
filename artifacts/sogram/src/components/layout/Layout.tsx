@@ -7,13 +7,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { label: "FEED", path: "/" },
+    { label: "WALLETS", path: "/wallets" },
+    { label: "WATCHLISTS", path: "/watchlists" },
+    { label: "ALERTS", path: "/alerts" },
+    { label: "BACKTEST", path: "/backtest", pro: true },
+    { label: "INVESTIGATIONS", path: "/investigations", pro: true },
     { label: "MARKETS", path: "/markets" },
-    { label: "SIGNALS", path: "/signals" },
-    { label: "PAIN ROOM", path: "/pain-room" },
-    { label: "INTENTS", path: "/intents" },
-    { label: "COPY", path: "/copy" },
-    { label: "ANALYTICS", path: "/analytics", pro: true },
-    { label: "TRADERS", path: "/traders" },
   ];
 
   return (
